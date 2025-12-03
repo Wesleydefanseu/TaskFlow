@@ -1,7 +1,8 @@
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
-import { Bell, Plus, Search, ChevronDown } from 'lucide-react';
+import { Plus, Search, ChevronDown } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { NotificationCenter } from '@/components/notifications/NotificationCenter';
 
 interface DashboardHeaderProps {
   title: string;
@@ -35,10 +36,7 @@ export function DashboardHeader({ title, subtitle }: DashboardHeaderProps) {
           </Button>
 
           {/* Notifications */}
-          <Button variant="ghost" size="icon" className="relative">
-            <Bell className="w-5 h-5" />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-destructive rounded-full" />
-          </Button>
+          <NotificationCenter />
 
           <ThemeToggle />
 

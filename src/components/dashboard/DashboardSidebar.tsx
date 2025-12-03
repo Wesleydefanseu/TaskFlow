@@ -15,6 +15,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
+import { useNotifications } from '@/contexts/NotificationsContext';
 
 const mainNav = [
   { icon: Home, label: 'Accueil', path: '/dashboard' },
@@ -34,6 +35,7 @@ const projects = [
 export function DashboardSidebar() {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
+  const { unreadCount } = useNotifications();
 
   return (
     <aside className={cn(
@@ -126,13 +128,20 @@ export function DashboardSidebar() {
         <Link
           to="/notifications"
           className={cn(
-            "flex items-center gap-3 px-3 py-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors",
+            "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
+            location.pathname === '/notifications'
+              ? "bg-primary text-primary-foreground shadow-md"
+              : "text-muted-foreground hover:text-foreground hover:bg-secondary",
             collapsed && "justify-center px-2"
           )}
         >
           <div className="relative">
             <Bell className="w-5 h-5" />
-            <span className="absolute -top-1 -right-1 w-2 h-2 bg-destructive rounded-full" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] flex items-center justify-center text-[9px] font-bold bg-destructive text-destructive-foreground rounded-full px-0.5">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
           </div>
           {!collapsed && <span className="font-medium">Notifications</span>}
         </Link>
