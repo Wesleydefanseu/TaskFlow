@@ -1,6 +1,9 @@
+import { useState } from 'react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { TeamMemberForm } from '@/components/forms/TeamMemberForm';
+import { usePermissions, UserRole, roleLabels } from '@/contexts/UserContext';
 import { 
   Plus, 
   Mail, 
@@ -11,17 +14,50 @@ import {
   UserPlus,
   CheckCircle2,
   Clock,
-  FolderKanban
+  FolderKanban,
+  Pencil,
+  Trash2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
 
-const teamMembers = [
+interface TeamMember {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  role: UserRole;
+  department: string;
+  avatar?: string;
+  status: 'online' | 'away' | 'offline';
+  tasksCompleted: number;
+  tasksInProgress: number;
+  projects: number;
+}
+
+const initialMembers: TeamMember[] = [
   {
-    id: 1,
+    id: '1',
     name: 'Alice Martin',
     email: 'alice@taskflow.com',
     phone: '+33 6 12 34 56 78',
-    role: 'Lead Designer',
+    role: 'chef_projet',
     department: 'Design',
     avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200',
     status: 'online',
@@ -30,11 +66,11 @@ const teamMembers = [
     projects: 4,
   },
   {
-    id: 2,
+    id: '2',
     name: 'Bob Dupont',
     email: 'bob@taskflow.com',
     phone: '+33 6 23 45 67 89',
-    role: 'Senior Developer',
+    role: 'developpeur',
     department: 'Engineering',
     avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200',
     status: 'online',
@@ -43,11 +79,11 @@ const teamMembers = [
     projects: 5,
   },
   {
-    id: 3,
+    id: '3',
     name: 'Charlie Petit',
     email: 'charlie@taskflow.com',
     phone: '+33 6 34 56 78 90',
-    role: 'Backend Engineer',
+    role: 'developpeur',
     department: 'Engineering',
     avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200',
     status: 'away',
@@ -56,11 +92,11 @@ const teamMembers = [
     projects: 3,
   },
   {
-    id: 4,
+    id: '4',
     name: 'Diana Moreau',
     email: 'diana@taskflow.com',
     phone: '+33 6 45 67 89 01',
-    role: 'QA Engineer',
+    role: 'observateur',
     department: 'Quality',
     status: 'offline',
     tasksCompleted: 38,
@@ -68,11 +104,11 @@ const teamMembers = [
     projects: 4,
   },
   {
-    id: 5,
+    id: '5',
     name: 'Emma Bernard',
     email: 'emma@taskflow.com',
     phone: '+33 6 56 78 90 12',
-    role: 'Product Manager',
+    role: 'admin',
     department: 'Product',
     avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200',
     status: 'online',
@@ -81,11 +117,11 @@ const teamMembers = [
     projects: 6,
   },
   {
-    id: 6,
+    id: '6',
     name: 'François Leroy',
     email: 'francois@taskflow.com',
     phone: '+33 6 67 89 01 23',
-    role: 'DevOps Engineer',
+    role: 'developpeur',
     department: 'Engineering',
     avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200',
     status: 'online',
@@ -96,6 +132,64 @@ const teamMembers = [
 ];
 
 const Team = () => {
+  const permissions = usePermissions();
+  const [members, setMembers] = useState<TeamMember[]>(initialMembers);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingMember, setEditingMember] = useState<TeamMember | undefined>();
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [memberToDelete, setMemberToDelete] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredMembers = members.filter(member =>
+    member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    member.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    member.department.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const handleAddMember = () => {
+    setEditingMember(undefined);
+    setFormOpen(true);
+  };
+
+  const handleEditMember = (member: TeamMember) => {
+    setEditingMember(member);
+    setFormOpen(true);
+  };
+
+  const handleDeleteMember = (memberId: string) => {
+    setMemberToDelete(memberId);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (memberToDelete) {
+      setMembers(members.filter(m => m.id !== memberToDelete));
+      setMemberToDelete(null);
+    }
+    setDeleteDialogOpen(false);
+  };
+
+  const handleSubmit = (data: Omit<TeamMember, 'id' | 'status' | 'tasksCompleted' | 'tasksInProgress' | 'projects' | 'phone'>) => {
+    if (editingMember) {
+      setMembers(members.map(m => 
+        m.id === editingMember.id 
+          ? { ...m, ...data }
+          : m
+      ));
+    } else {
+      const newMember: TeamMember = {
+        ...data,
+        id: Date.now().toString(),
+        phone: '',
+        status: 'offline',
+        tasksCompleted: 0,
+        tasksInProgress: 0,
+        projects: 0,
+      };
+      setMembers([...members, newMember]);
+    }
+  };
+
   return (
     <DashboardLayout title="Équipe" subtitle="Gérez votre équipe et les permissions">
       {/* Toolbar */}
@@ -105,6 +199,8 @@ const Team = () => {
           <input
             type="text"
             placeholder="Rechercher un membre..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2 bg-secondary rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
           />
         </div>
@@ -114,16 +210,18 @@ const Team = () => {
             <Filter className="w-4 h-4 mr-2" />
             Filtrer
           </Button>
-          <Button variant="gradient" size="sm">
-            <UserPlus className="w-4 h-4 mr-2" />
-            Inviter
-          </Button>
+          {permissions.canManageTeam && (
+            <Button variant="gradient" size="sm" onClick={handleAddMember}>
+              <UserPlus className="w-4 h-4 mr-2" />
+              Inviter
+            </Button>
+          )}
         </div>
       </div>
 
       {/* Team Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {teamMembers.map((member) => (
+        {filteredMembers.map((member) => (
           <div
             key={member.id}
             className="bg-card border border-border rounded-xl p-6 hover:shadow-elevated transition-all duration-300 group"
@@ -145,19 +243,39 @@ const Team = () => {
                 </div>
                 <div>
                   <h3 className="font-semibold">{member.name}</h3>
-                  <p className="text-sm text-muted-foreground">{member.role}</p>
+                  <p className="text-sm text-muted-foreground">{roleLabels[member.role]}</p>
                 </div>
               </div>
-              <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
-                <MoreHorizontal className="w-4 h-4" />
-              </Button>
+              {permissions.canManageTeam && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <MoreHorizontal className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => handleEditMember(member)}>
+                      <Pencil className="w-4 h-4 mr-2" />
+                      Modifier
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={() => handleDeleteMember(member.id)}
+                      className="text-destructive"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Supprimer
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </div>
 
             {/* Department Badge */}
-            <div className="mb-4">
-              <span className="px-3 py-1 bg-secondary text-secondary-foreground text-xs font-medium rounded-full">
-                {member.department}
-              </span>
+            <div className="flex items-center gap-2 mb-4">
+              <Badge variant="secondary">{member.department}</Badge>
+              <Badge variant="outline" className="text-xs">
+                {roleLabels[member.role]}
+              </Badge>
             </div>
 
             {/* Contact Info */}
@@ -166,10 +284,12 @@ const Team = () => {
                 <Mail className="w-4 h-4" />
                 <span className="truncate">{member.email}</span>
               </div>
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Phone className="w-4 h-4" />
-                <span>{member.phone}</span>
-              </div>
+              {member.phone && (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Phone className="w-4 h-4" />
+                  <span>{member.phone}</span>
+                </div>
+              )}
             </div>
 
             {/* Stats */}
@@ -200,13 +320,45 @@ const Team = () => {
         ))}
 
         {/* Add New Member Card */}
-        <button className="border-2 border-dashed border-border rounded-xl p-6 flex flex-col items-center justify-center gap-4 text-muted-foreground hover:border-primary hover:text-primary transition-colors min-h-[280px]">
-          <div className="w-14 h-14 rounded-full border-2 border-current flex items-center justify-center">
-            <Plus className="w-6 h-6" />
-          </div>
-          <span className="font-medium">Ajouter un membre</span>
-        </button>
+        {permissions.canManageTeam && (
+          <button 
+            onClick={handleAddMember}
+            className="border-2 border-dashed border-border rounded-xl p-6 flex flex-col items-center justify-center gap-4 text-muted-foreground hover:border-primary hover:text-primary transition-colors min-h-[280px]"
+          >
+            <div className="w-14 h-14 rounded-full border-2 border-current flex items-center justify-center">
+              <Plus className="w-6 h-6" />
+            </div>
+            <span className="font-medium">Ajouter un membre</span>
+          </button>
+        )}
       </div>
+
+      {/* Team Member Form */}
+      <TeamMemberForm
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        onSubmit={handleSubmit}
+        initialData={editingMember}
+        mode={editingMember ? 'edit' : 'create'}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
+            <AlertDialogDescription>
+              Êtes-vous sûr de vouloir supprimer ce membre de l'équipe ? Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 };

@@ -1,4 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
+import { useState } from 'react';
 import { 
   LayoutGrid, 
   Home, 
@@ -10,12 +11,15 @@ import {
   ChevronLeft,
   BarChart3,
   Bell,
-  Search
+  Search,
+  LogOut
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
 import { useNotifications } from '@/contexts/NotificationsContext';
+import { useUser, usePermissions, roleLabels } from '@/contexts/UserContext';
+import { ProjectForm } from '@/components/forms/ProjectForm';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const mainNav = [
   { icon: Home, label: 'Accueil', path: '/dashboard' },
@@ -25,17 +29,36 @@ const mainNav = [
   { icon: Users, label: 'Équipe', path: '/team' },
 ];
 
-const projects = [
-  { name: 'Site Web Refonte', color: 'bg-primary' },
-  { name: 'App Mobile', color: 'bg-accent' },
-  { name: 'Marketing Q1', color: 'bg-status-progress' },
-  { name: 'Design System', color: 'bg-status-review' },
+const initialProjects = [
+  { id: '1', name: 'Site Web Refonte', color: 'bg-primary' },
+  { id: '2', name: 'App Mobile', color: 'bg-accent' },
+  { id: '3', name: 'Marketing Q1', color: 'bg-status-progress' },
+  { id: '4', name: 'Design System', color: 'bg-status-review' },
 ];
 
 export function DashboardSidebar() {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const { unreadCount } = useNotifications();
+  const { user, logout } = useUser();
+  const permissions = usePermissions();
+  const [projects, setProjects] = useState(initialProjects);
+  const [projectFormOpen, setProjectFormOpen] = useState(false);
+
+  const handleProjectSubmit = (data: { name: string; description: string; status: string; startDate: string; endDate: string }) => {
+    const colors = ['bg-primary', 'bg-accent', 'bg-status-progress', 'bg-status-review', 'bg-status-done'];
+    const newProject = {
+      id: Date.now().toString(),
+      name: data.name,
+      color: colors[projects.length % colors.length],
+    };
+    setProjects([...projects, newProject]);
+  };
+
+  const handleLogout = () => {
+    logout();
+    window.location.href = '/login';
+  };
 
   return (
     <aside className={cn(
@@ -103,15 +126,22 @@ export function DashboardSidebar() {
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Projets
               </span>
-              <Button variant="ghost" size="icon" className="h-6 w-6">
-                <Plus className="w-4 h-4" />
-              </Button>
+              {permissions.canCreateProject && (
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-6 w-6"
+                  onClick={() => setProjectFormOpen(true)}
+                >
+                  <Plus className="w-4 h-4" />
+                </Button>
+              )}
             </div>
             <div className="space-y-1">
-              {projects.map((project, index) => (
+              {projects.map((project) => (
                 <Link
-                  key={index}
-                  to={`/projects/${index + 1}`}
+                  key={project.id}
+                  to={`/projects/${project.id}`}
                   className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
                 >
                   <div className={cn("w-2 h-2 rounded-full", project.color)} />
@@ -156,6 +186,25 @@ export function DashboardSidebar() {
           {!collapsed && <span className="font-medium">Paramètres</span>}
         </Link>
 
+        {/* User Section */}
+        {user && !collapsed && (
+          <div className="pt-3 mt-3 border-t border-border">
+            <div className="flex items-center gap-3 px-3 py-2">
+              <Avatar className="h-8 w-8">
+                <AvatarImage src={user.avatar} />
+                <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{user.name}</p>
+                <p className="text-xs text-muted-foreground">{roleLabels[user.role]}</p>
+              </div>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleLogout}>
+                <LogOut className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+
         {collapsed && (
           <Button 
             variant="ghost" 
@@ -167,6 +216,14 @@ export function DashboardSidebar() {
           </Button>
         )}
       </div>
+
+      {/* Project Form */}
+      <ProjectForm
+        open={projectFormOpen}
+        onOpenChange={setProjectFormOpen}
+        onSubmit={handleProjectSubmit}
+        mode="create"
+      />
     </aside>
   );
 }

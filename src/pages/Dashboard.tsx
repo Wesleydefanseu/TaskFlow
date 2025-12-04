@@ -1,6 +1,7 @@
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { StatsCard } from '@/components/dashboard/StatsCard';
 import { TaskCard } from '@/components/dashboard/TaskCard';
+import { useUser, usePermissions, roleLabels } from '@/contexts/UserContext';
 import { 
   CheckCircle2, 
   Clock, 
@@ -8,11 +9,16 @@ import {
   TrendingUp,
   ArrowRight,
   Calendar,
-  BarChart3
+  BarChart3,
+  Shield,
+  FolderKanban,
+  Settings,
+  Eye
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Link } from 'react-router-dom';
+import { Badge } from '@/components/ui/badge';
 
 const recentTasks = [
   {
@@ -61,50 +67,96 @@ const teamMembers = [
   { name: 'Diana Moreau', role: 'QA', status: 'offline' },
 ];
 
+// Admin specific stats
+const adminStats = [
+  { title: 'Utilisateurs actifs', value: 156, change: '+23 ce mois', changeType: 'positive' as const, icon: Users },
+  { title: 'Projets actifs', value: 24, change: '+3 cette semaine', changeType: 'positive' as const, icon: FolderKanban },
+  { title: 'Tâches terminées', value: 892, change: '+12% vs mois dernier', changeType: 'positive' as const, icon: CheckCircle2 },
+  { title: 'Temps moyen', value: '2.3j', change: '-18% amélioration', changeType: 'positive' as const, icon: Clock },
+];
+
+// Chef de projet specific stats
+const chefProjetStats = [
+  { title: 'Mes projets', value: 8, change: '3 en cours', changeType: 'neutral' as const, icon: FolderKanban },
+  { title: 'Équipe', value: 12, change: '10 actifs', changeType: 'positive' as const, icon: Users },
+  { title: 'Tâches en retard', value: 3, change: 'À traiter', changeType: 'negative' as const, icon: Clock },
+  { title: 'Progression', value: '78%', change: '+5% cette semaine', changeType: 'positive' as const, icon: TrendingUp },
+];
+
+// Développeur specific stats
+const developpeurStats = [
+  { title: 'Mes tâches', value: 15, change: '5 urgentes', changeType: 'negative' as const, icon: CheckCircle2 },
+  { title: 'En cours', value: 4, change: '2 en revue', changeType: 'neutral' as const, icon: Clock },
+  { title: 'Terminées', value: 128, change: '+8 cette semaine', changeType: 'positive' as const, icon: TrendingUp },
+  { title: 'Sprint actuel', value: '67%', change: 'En bonne voie', changeType: 'positive' as const, icon: BarChart3 },
+];
+
+// Observateur specific stats
+const observateurStats = [
+  { title: 'Projets visibles', value: 12, change: 'Lecture seule', changeType: 'neutral' as const, icon: Eye },
+  { title: 'Tâches totales', value: 234, change: '45 en cours', changeType: 'neutral' as const, icon: CheckCircle2 },
+  { title: 'Membres équipe', value: 18, change: '15 actifs', changeType: 'neutral' as const, icon: Users },
+  { title: 'Progression globale', value: '72%', change: 'Tous projets', changeType: 'neutral' as const, icon: TrendingUp },
+];
+
+const getStatsForRole = (role: string) => {
+  switch (role) {
+    case 'admin': return adminStats;
+    case 'chef_projet': return chefProjetStats;
+    case 'developpeur': return developpeurStats;
+    case 'observateur': return observateurStats;
+    default: return developpeurStats;
+  }
+};
+
 const Dashboard = () => {
+  const { user } = useUser();
+  const permissions = usePermissions();
+  const stats = getStatsForRole(user?.role || 'developpeur');
+
   return (
-    <DashboardLayout title="Tableau de bord" subtitle="Bienvenue, Jean! Voici un aperçu de vos projets.">
+    <DashboardLayout 
+      title="Tableau de bord" 
+      subtitle={`Bienvenue, ${user?.name || 'Utilisateur'}! Voici un aperçu de vos projets.`}
+    >
+      {/* Role Badge */}
+      <div className="flex items-center gap-3 mb-6">
+        <Badge variant="outline" className="gap-2 py-1.5 px-3">
+          <Shield className="w-4 h-4" />
+          {roleLabels[user?.role || 'developpeur']}
+        </Badge>
+        {user?.role === 'admin' && (
+          <Link to="/settings">
+            <Button variant="outline" size="sm">
+              <Settings className="w-4 h-4 mr-2" />
+              Administration
+            </Button>
+          </Link>
+        )}
+      </div>
+
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <StatsCard
-          title="Tâches terminées"
-          value={128}
-          change="+12% cette semaine"
-          changeType="positive"
-          icon={CheckCircle2}
-          iconColor="gradient-primary"
-        />
-        <StatsCard
-          title="En cours"
-          value={24}
-          change="8 urgentes"
-          changeType="negative"
-          icon={Clock}
-          iconColor="bg-status-progress"
-        />
-        <StatsCard
-          title="Membres actifs"
-          value={12}
-          change="3 en ligne"
-          changeType="neutral"
-          icon={Users}
-          iconColor="bg-accent"
-        />
-        <StatsCard
-          title="Productivité"
-          value="94%"
-          change="+5% vs mois dernier"
-          changeType="positive"
-          icon={TrendingUp}
-          iconColor="bg-status-done"
-        />
+        {stats.map((stat, index) => (
+          <StatsCard
+            key={index}
+            title={stat.title}
+            value={stat.value}
+            change={stat.change}
+            changeType={stat.changeType}
+            icon={stat.icon}
+            iconColor={index === 0 ? "gradient-primary" : index === 1 ? "bg-status-progress" : index === 2 ? "bg-accent" : "bg-status-done"}
+          />
+        ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent Tasks */}
         <div className="lg:col-span-2 bg-card border border-border rounded-xl p-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold">Tâches récentes</h2>
+            <h2 className="text-lg font-semibold">
+              {user?.role === 'observateur' ? 'Tâches récentes (lecture seule)' : 'Tâches récentes'}
+            </h2>
             <Link to="/projects">
               <Button variant="ghost" size="sm">
                 Voir tout
@@ -153,7 +205,7 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Quick Actions */}
+          {/* Quick Actions - filtered by permissions */}
           <div className="bg-card border border-border rounded-xl p-6">
             <h2 className="text-lg font-semibold mb-4">Actions rapides</h2>
             <div className="grid grid-cols-2 gap-3">
@@ -169,18 +221,22 @@ const Dashboard = () => {
                   <span className="text-xs">Calendrier</span>
                 </Button>
               </Link>
-              <Link to="/team">
-                <Button variant="outline" className="w-full h-auto py-4 flex flex-col gap-2">
-                  <Users className="w-5 h-5" />
-                  <span className="text-xs">Équipe</span>
-                </Button>
-              </Link>
-              <Link to="/settings">
-                <Button variant="outline" className="w-full h-auto py-4 flex flex-col gap-2">
-                  <TrendingUp className="w-5 h-5" />
-                  <span className="text-xs">Rapports</span>
-                </Button>
-              </Link>
+              {permissions.canManageTeam && (
+                <Link to="/team">
+                  <Button variant="outline" className="w-full h-auto py-4 flex flex-col gap-2">
+                    <Users className="w-5 h-5" />
+                    <span className="text-xs">Équipe</span>
+                  </Button>
+                </Link>
+              )}
+              {permissions.canViewAnalytics && (
+                <Link to="/analytics">
+                  <Button variant="outline" className="w-full h-auto py-4 flex flex-col gap-2">
+                    <TrendingUp className="w-5 h-5" />
+                    <span className="text-xs">Rapports</span>
+                  </Button>
+                </Link>
+              )}
             </div>
           </div>
         </div>

@@ -1,19 +1,24 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { LayoutGrid, Mail, Lock, ArrowRight, Chrome } from 'lucide-react';
+import { LayoutGrid, Mail, Lock, ArrowRight, Chrome, Shield } from 'lucide-react';
 import { useState } from 'react';
+import { useUser, UserRole, roleLabels } from '@/contexts/UserContext';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [role, setRole] = useState<UserRole>('developpeur');
+  const navigate = useNavigate();
+  const { login } = useUser();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle login - will connect to backend later
-    window.location.href = '/dashboard';
+    login(email, password, role);
+    navigate('/dashboard');
   };
 
   return (
@@ -71,6 +76,26 @@ const Login = () => {
                   className="pl-10 h-12"
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="role">Rôle (démo)</Label>
+              <div className="relative">
+                <Shield className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground z-10" />
+                <Select value={role} onValueChange={(value: UserRole) => setRole(value)}>
+                  <SelectTrigger className="pl-10 h-12">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(roleLabels).map(([key, label]) => (
+                      <SelectItem key={key} value={key}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Sélectionnez un rôle pour tester les différentes permissions
+              </p>
             </div>
 
             <Button type="submit" variant="gradient" className="w-full h-12 text-base">
