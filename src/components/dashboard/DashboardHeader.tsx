@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Plus, Search, ChevronDown } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { NotificationCenter } from '@/components/notifications/NotificationCenter';
+import { useUser, roleLabels } from '@/contexts/UserContext';
 
 interface DashboardHeaderProps {
   title: string;
@@ -10,6 +11,8 @@ interface DashboardHeaderProps {
 }
 
 export function DashboardHeader({ title, subtitle }: DashboardHeaderProps) {
+  const { user } = useUser();
+
   return (
     <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-40">
       <div className="h-full px-6 flex items-center justify-between">
@@ -43,11 +46,12 @@ export function DashboardHeader({ title, subtitle }: DashboardHeaderProps) {
           {/* User Menu */}
           <div className="flex items-center gap-2 pl-3 border-l border-border">
             <Avatar className="h-8 w-8">
-              <AvatarImage src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop" />
-              <AvatarFallback>JD</AvatarFallback>
+              <AvatarImage src={user?.avatar} />
+              <AvatarFallback>{user?.name?.charAt(0) || 'U'}</AvatarFallback>
             </Avatar>
             <div className="hidden md:block">
-              <p className="text-sm font-medium">Jean Dupont</p>
+              <p className="text-sm font-medium">{user?.name || 'Utilisateur'}</p>
+              <p className="text-xs text-muted-foreground">{user?.role ? roleLabels[user.role] : ''}</p>
             </div>
             <ChevronDown className="w-4 h-4 text-muted-foreground" />
           </div>

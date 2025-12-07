@@ -28,8 +28,8 @@ const recentTasks = [
     priority: 'high' as const,
     dueDate: 'Aujourd\'hui',
     assignees: [
-      { name: 'Alice', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100' },
-      { name: 'Bob', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100' },
+      { name: 'Aminata', avatar: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=100' },
+      { name: 'Kwame', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100' },
     ],
     comments: 8,
     attachments: 3,
@@ -42,7 +42,7 @@ const recentTasks = [
     priority: 'urgent' as const,
     dueDate: 'Demain',
     assignees: [
-      { name: 'Charlie', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100' },
+      { name: 'Ousmane', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100' },
     ],
     comments: 5,
     attachments: 1,
@@ -54,17 +54,17 @@ const recentTasks = [
     priority: 'medium' as const,
     dueDate: 'Dans 3 jours',
     assignees: [
-      { name: 'Diana' },
+      { name: 'Fatou' },
     ],
     comments: 2,
   },
 ];
 
 const teamMembers = [
-  { name: 'Alice Martin', role: 'Designer', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100', status: 'online' },
-  { name: 'Bob Dupont', role: 'Développeur', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100', status: 'online' },
-  { name: 'Charlie Petit', role: 'Backend', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100', status: 'away' },
-  { name: 'Diana Moreau', role: 'QA', status: 'offline' },
+  { name: 'Aminata Diallo', role: 'Designer', avatar: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=100', status: 'online' },
+  { name: 'Kwame Asante', role: 'Développeur', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100', status: 'online' },
+  { name: 'Ousmane Traoré', role: 'Backend', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100', status: 'away' },
+  { name: 'Fatou Ndiaye', role: 'QA', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100', status: 'offline' },
 ];
 
 // Admin specific stats

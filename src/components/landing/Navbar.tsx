@@ -20,13 +20,13 @@ export function Navbar() {
 
           {/* Desktop Menu */}
           <div className="hidden md:flex items-center gap-8">
-            <Link to="/" className="text-muted-foreground hover:text-foreground transition-colors">
+            <Link to="/features" className="text-muted-foreground hover:text-foreground transition-colors">
               Fonctionnalités
             </Link>
-            <Link to="/" className="text-muted-foreground hover:text-foreground transition-colors">
+            <Link to="/pricing" className="text-muted-foreground hover:text-foreground transition-colors">
               Tarifs
             </Link>
-            <Link to="/" className="text-muted-foreground hover:text-foreground transition-colors">
+            <Link to="/about" className="text-muted-foreground hover:text-foreground transition-colors">
               À propos
             </Link>
           </div>
@@ -54,13 +54,13 @@ export function Navbar() {
         {isOpen && (
           <div className="md:hidden py-4 border-t border-border/50 animate-slide-up">
             <div className="flex flex-col gap-4">
-              <Link to="/" className="text-muted-foreground hover:text-foreground transition-colors">
+              <Link to="/features" className="text-muted-foreground hover:text-foreground transition-colors">
                 Fonctionnalités
               </Link>
-              <Link to="/" className="text-muted-foreground hover:text-foreground transition-colors">
+              <Link to="/pricing" className="text-muted-foreground hover:text-foreground transition-colors">
                 Tarifs
               </Link>
-              <Link to="/" className="text-muted-foreground hover:text-foreground transition-colors">
+              <Link to="/about" className="text-muted-foreground hover:text-foreground transition-colors">
                 À propos
               </Link>
               <div className="flex gap-3 pt-4">

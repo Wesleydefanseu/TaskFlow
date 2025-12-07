@@ -1,20 +1,25 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { LayoutGrid, Mail, Lock, User, ArrowRight, Chrome, CheckCircle2 } from 'lucide-react';
+import { LayoutGrid, Mail, Lock, User, ArrowRight, Chrome, CheckCircle2, Shield } from 'lucide-react';
 import { useState } from 'react';
+import { useUser, UserRole, roleLabels } from '@/contexts/UserContext';
 
 const Register = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [role, setRole] = useState<UserRole>('developpeur');
+  const navigate = useNavigate();
+  const { login } = useUser();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle registration - will connect to backend later
-    window.location.href = '/dashboard';
+    login(email, password, role);
+    navigate('/dashboard');
   };
 
   const benefits = [
@@ -122,6 +127,26 @@ const Register = () => {
               </div>
               <p className="text-xs text-muted-foreground">
                 Minimum 8 caractères avec une majuscule et un chiffre
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="role">Rôle</Label>
+              <div className="relative">
+                <Shield className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground z-10" />
+                <Select value={role} onValueChange={(value: UserRole) => setRole(value)}>
+                  <SelectTrigger className="pl-10 h-12">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(roleLabels).map(([key, label]) => (
+                      <SelectItem key={key} value={key}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Sélectionnez votre rôle dans l'organisation
               </p>
             </div>
 
