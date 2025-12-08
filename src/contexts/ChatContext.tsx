@@ -33,65 +33,65 @@ interface ChatContextType {
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
-// Noms africains pour les conversations
-const africanTeamMembers = [
-  { id: '1', name: 'Aminata Diallo', avatar: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=100', status: 'online' as const },
-  { id: '2', name: 'Kwame Asante', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100', status: 'online' as const },
-  { id: '3', name: 'Fatou Ndiaye', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100', status: 'away' as const },
-  { id: '4', name: 'Ousmane Traoré', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100', status: 'online' as const },
-  { id: '5', name: 'Aïcha Coulibaly', avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100', status: 'offline' as const },
+// Membres camerounais pour les conversations
+const cameroonTeamMembers = [
+  { id: '1', name: 'Jean-Paul Mbarga', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100', status: 'online' as const },
+  { id: '2', name: 'Marie-Claire Fotso', avatar: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=100', status: 'online' as const },
+  { id: '3', name: 'Sandrine Tchamba', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100', status: 'away' as const },
+  { id: '4', name: 'Emmanuel Ngono', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100', status: 'online' as const },
+  { id: '5', name: 'Carine Atangana', avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100', status: 'offline' as const },
 ];
 
 const initialConversations: ChatConversation[] = [
   {
     id: '1',
     participantId: '1',
-    participantName: 'Aminata Diallo',
-    participantAvatar: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=100',
+    participantName: 'Jean-Paul Mbarga',
+    participantAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100',
     participantStatus: 'online',
-    lastMessage: 'Super, on peut avancer sur le projet!',
+    lastMessage: 'Super, on peut avancer sur le projet MTN!',
     lastMessageTime: new Date(Date.now() - 1000 * 60 * 5),
     unreadCount: 2,
     messages: [
-      { id: '1', senderId: '1', senderName: 'Aminata Diallo', senderAvatar: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=100', content: 'Bonjour! Comment avance le projet?', timestamp: new Date(Date.now() - 1000 * 60 * 30), isRead: true },
+      { id: '1', senderId: '1', senderName: 'Jean-Paul Mbarga', senderAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100', content: 'Bonjour! Comment avance le projet?', timestamp: new Date(Date.now() - 1000 * 60 * 30), isRead: true },
       { id: '2', senderId: 'me', senderName: 'Moi', content: 'Ça avance bien, je termine la page dashboard', timestamp: new Date(Date.now() - 1000 * 60 * 25), isRead: true },
-      { id: '3', senderId: '1', senderName: 'Aminata Diallo', senderAvatar: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=100', content: 'Parfait! Tu peux me montrer quand tu as fini?', timestamp: new Date(Date.now() - 1000 * 60 * 10), isRead: false },
-      { id: '4', senderId: '1', senderName: 'Aminata Diallo', senderAvatar: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=100', content: 'Super, on peut avancer sur le projet!', timestamp: new Date(Date.now() - 1000 * 60 * 5), isRead: false },
+      { id: '3', senderId: '1', senderName: 'Jean-Paul Mbarga', senderAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100', content: 'Parfait! Tu peux me montrer quand tu as fini?', timestamp: new Date(Date.now() - 1000 * 60 * 10), isRead: false },
+      { id: '4', senderId: '1', senderName: 'Jean-Paul Mbarga', senderAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100', content: 'Super, on peut avancer sur le projet MTN!', timestamp: new Date(Date.now() - 1000 * 60 * 5), isRead: false },
     ],
   },
   {
     id: '2',
     participantId: '2',
-    participantName: 'Kwame Asante',
-    participantAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100',
+    participantName: 'Marie-Claire Fotso',
+    participantAvatar: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=100',
     participantStatus: 'online',
     lastMessage: 'J\'ai push les dernières modifications',
     lastMessageTime: new Date(Date.now() - 1000 * 60 * 30),
     unreadCount: 0,
     messages: [
-      { id: '1', senderId: '2', senderName: 'Kwame Asante', senderAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100', content: 'Hey, tu as vu le PR?', timestamp: new Date(Date.now() - 1000 * 60 * 60), isRead: true },
+      { id: '1', senderId: '2', senderName: 'Marie-Claire Fotso', senderAvatar: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=100', content: 'Hey, tu as vu le PR?', timestamp: new Date(Date.now() - 1000 * 60 * 60), isRead: true },
       { id: '2', senderId: 'me', senderName: 'Moi', content: 'Oui je vais review ça maintenant', timestamp: new Date(Date.now() - 1000 * 60 * 45), isRead: true },
-      { id: '3', senderId: '2', senderName: 'Kwame Asante', senderAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100', content: 'J\'ai push les dernières modifications', timestamp: new Date(Date.now() - 1000 * 60 * 30), isRead: true },
+      { id: '3', senderId: '2', senderName: 'Marie-Claire Fotso', senderAvatar: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=100', content: 'J\'ai push les dernières modifications', timestamp: new Date(Date.now() - 1000 * 60 * 30), isRead: true },
     ],
   },
   {
     id: '3',
     participantId: '3',
-    participantName: 'Fatou Ndiaye',
+    participantName: 'Sandrine Tchamba',
     participantAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100',
     participantStatus: 'away',
     lastMessage: 'Les maquettes sont prêtes',
     lastMessageTime: new Date(Date.now() - 1000 * 60 * 60 * 2),
     unreadCount: 1,
     messages: [
-      { id: '1', senderId: '3', senderName: 'Fatou Ndiaye', senderAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100', content: 'Les maquettes sont prêtes', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2), isRead: false },
+      { id: '1', senderId: '3', senderName: 'Sandrine Tchamba', senderAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100', content: 'Les maquettes sont prêtes', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2), isRead: false },
     ],
   },
   {
     id: '4',
     participantId: '4',
-    participantName: 'Ousmane Traoré',
-    participantAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100',
+    participantName: 'Emmanuel Ngono',
+    participantAvatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100',
     participantStatus: 'online',
     unreadCount: 0,
     messages: [],

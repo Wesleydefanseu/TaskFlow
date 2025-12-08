@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,6 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Task } from '@/components/dashboard/DraggableTaskCard';
+import { AssigneeSelector, TeamMember } from './AssigneeSelector';
+import { cameroonTeamMembers } from '@/data/cameroonTeam';
 
 interface TaskFormProps {
   open: boolean;
@@ -21,6 +23,38 @@ export function TaskForm({ open, onOpenChange, onSubmit, initialData, columnId, 
   const [description, setDescription] = useState(initialData?.description || '');
   const [priority, setPriority] = useState<Task['priority']>(initialData?.priority || 'medium');
   const [dueDate, setDueDate] = useState(initialData?.dueDate || '');
+  const [selectedAssignees, setSelectedAssignees] = useState<TeamMember[]>([]);
+
+  const availableMembers: TeamMember[] = cameroonTeamMembers.map(m => ({
+    id: m.id,
+    name: m.name,
+    email: m.email,
+    avatar: m.avatar,
+    role: m.role,
+  }));
+
+  useEffect(() => {
+    if (initialData?.assignees) {
+      const mappedAssignees = initialData.assignees.map((a, index) => ({
+        id: `assignee-${index}`,
+        name: a.name,
+        email: '',
+        avatar: a.avatar,
+        role: '',
+      }));
+      setSelectedAssignees(mappedAssignees);
+    } else {
+      setSelectedAssignees([]);
+    }
+  }, [initialData, open]);
+
+  const handleAssign = (member: TeamMember) => {
+    setSelectedAssignees(prev => [...prev, member]);
+  };
+
+  const handleRemove = (memberId: string) => {
+    setSelectedAssignees(prev => prev.filter(a => a.id !== memberId));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,7 +64,7 @@ export function TaskForm({ open, onOpenChange, onSubmit, initialData, columnId, 
       priority,
       dueDate,
       columnId: columnId || initialData?.columnId || 'todo',
-      assignees: initialData?.assignees || [],
+      assignees: selectedAssignees.map(a => ({ name: a.name, avatar: a.avatar })),
       comments: initialData?.comments || 0,
       attachments: initialData?.attachments || 0,
       labels: initialData?.labels || [],
@@ -44,6 +78,7 @@ export function TaskForm({ open, onOpenChange, onSubmit, initialData, columnId, 
     setDescription('');
     setPriority('medium');
     setDueDate('');
+    setSelectedAssignees([]);
   };
 
   return (
@@ -102,6 +137,16 @@ export function TaskForm({ open, onOpenChange, onSubmit, initialData, columnId, 
                 onChange={(e) => setDueDate(e.target.value)}
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Assignés</Label>
+            <AssigneeSelector
+              selectedAssignees={selectedAssignees}
+              availableMembers={availableMembers}
+              onAssign={handleAssign}
+              onRemove={handleRemove}
+            />
           </div>
 
           <DialogFooter>
