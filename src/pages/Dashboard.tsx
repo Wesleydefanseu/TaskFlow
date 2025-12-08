@@ -28,8 +28,8 @@ const recentTasks = [
     priority: 'high' as const,
     dueDate: 'Aujourd\'hui',
     assignees: [
-      { name: 'Aminata', avatar: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=100' },
-      { name: 'Kwame', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100' },
+      { name: 'Marie-Claire Fotso', avatar: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=100' },
+      { name: 'Patrick Nganou', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100' },
     ],
     comments: 8,
     attachments: 3,
@@ -38,11 +38,11 @@ const recentTasks = [
   {
     id: '2',
     title: 'Intégration API de paiement',
-    description: 'Connecter Stripe pour les abonnements',
+    description: 'Connecter Mobile Money pour les abonnements',
     priority: 'urgent' as const,
     dueDate: 'Demain',
     assignees: [
-      { name: 'Ousmane', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100' },
+      { name: 'Emmanuel Ngono', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100' },
     ],
     comments: 5,
     attachments: 1,
@@ -54,17 +54,17 @@ const recentTasks = [
     priority: 'medium' as const,
     dueDate: 'Dans 3 jours',
     assignees: [
-      { name: 'Fatou' },
+      { name: 'Sandrine Tchamba', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100' },
     ],
     comments: 2,
   },
 ];
 
 const teamMembers = [
-  { name: 'Aminata Diallo', role: 'Designer', avatar: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=100', status: 'online' },
-  { name: 'Kwame Asante', role: 'Développeur', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100', status: 'online' },
-  { name: 'Ousmane Traoré', role: 'Backend', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100', status: 'away' },
-  { name: 'Fatou Ndiaye', role: 'QA', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100', status: 'offline' },
+  { name: 'Jean-Paul Mbarga', role: 'Chef de projet', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100', status: 'online' },
+  { name: 'Marie-Claire Fotso', role: 'Développeur Senior', avatar: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=100', status: 'online' },
+  { name: 'Patrick Nganou', role: 'Designer', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100', status: 'away' },
+  { name: 'Sandrine Tchamba', role: 'QA', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100', status: 'offline' },
 ];
 
 // Admin specific stats
