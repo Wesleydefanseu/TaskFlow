@@ -24,8 +24,9 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 const mainNav = [
   { icon: Home, label: 'Accueil', path: '/dashboard' },
   { icon: FolderKanban, label: 'Projets', path: '/projects' },
+  { icon: LayoutGrid, label: 'Tableaux', path: '/boards' },
+  { icon: BarChart3, label: 'Planification', path: '/planning' },
   { icon: Calendar, label: 'Calendrier', path: '/calendar' },
-  { icon: BarChart3, label: 'Analytiques', path: '/analytics' },
   { icon: Users, label: 'Équipe', path: '/team' },
 ];
 
