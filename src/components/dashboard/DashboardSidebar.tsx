@@ -12,7 +12,9 @@ import {
   BarChart3,
   Bell,
   Search,
-  LogOut
+  LogOut,
+  Zap,
+  TrendingUp
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -28,6 +30,8 @@ const mainNav = [
   { icon: BarChart3, label: 'Planification', path: '/planning' },
   { icon: Calendar, label: 'Calendrier', path: '/calendar' },
   { icon: Users, label: 'Équipe', path: '/team' },
+  { icon: TrendingUp, label: 'Analytiques', path: '/analytics' },
+  { icon: Zap, label: 'Automatisation', path: '/automation' },
 ];
 
 const initialProjects = [
