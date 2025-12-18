@@ -5,8 +5,14 @@ import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { DroppableColumn } from '@/components/dashboard/DroppableColumn';
 import { DraggableTaskCard, Task } from '@/components/dashboard/DraggableTaskCard';
 import { TaskForm } from '@/components/forms/TaskForm';
+import { ListView } from '@/components/views/ListView';
+import { TimelineView } from '@/components/views/TimelineView';
+import { PresenceIndicator } from '@/components/collaboration/PresenceIndicator';
+import { ActivityFeed } from '@/components/collaboration/ActivityFeed';
+import { AIAssistant } from '@/components/ai/AIAssistant';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { usePermissions } from '@/contexts/UserContext';
 import { 
   LayoutGrid, 
@@ -14,7 +20,11 @@ import {
   Calendar,
   Filter,
   SlidersHorizontal,
-  Plus
+  Plus,
+  GanttChart,
+  Sparkles,
+  Activity,
+  Users
 } from 'lucide-react';
 
 const initialTasks: Task[] = [
@@ -127,6 +137,8 @@ const Projects = () => {
   const [taskFormOpen, setTaskFormOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>();
   const [selectedColumnId, setSelectedColumnId] = useState<string>('todo');
+  const [currentView, setCurrentView] = useState('kanban');
+  const [groupBy, setGroupBy] = useState<'status' | 'priority' | 'assignee'>('status');
 
   const handleDragStart = (event: DragStartEvent) => {
     const task = tasks.find(t => t.id === event.active.id);
@@ -140,14 +152,13 @@ const Projects = () => {
     const activeId = active.id as string;
     const overId = over.id as string;
 
-    const activeTask = tasks.find(t => t.id === activeId);
+    const activeTaskItem = tasks.find(t => t.id === activeId);
     const overTask = tasks.find(t => t.id === overId);
 
-    if (!activeTask) return;
+    if (!activeTaskItem) return;
 
-    // If dropping over a column
     if (columns.some(col => col.id === overId)) {
-      if (activeTask.columnId !== overId) {
+      if (activeTaskItem.columnId !== overId) {
         setTasks(tasks.map(t => 
           t.id === activeId ? { ...t, columnId: overId } : t
         ));
@@ -155,8 +166,7 @@ const Projects = () => {
       return;
     }
 
-    // If dropping over another task
-    if (overTask && activeTask.columnId !== overTask.columnId) {
+    if (overTask && activeTaskItem.columnId !== overTask.columnId) {
       setTasks(tasks.map(t => 
         t.id === activeId ? { ...t, columnId: overTask.columnId } : t
       ));
@@ -174,19 +184,18 @@ const Projects = () => {
 
     if (activeId === overId) return;
 
-    const activeTask = tasks.find(t => t.id === activeId);
+    const activeTaskItem = tasks.find(t => t.id === activeId);
     const overTask = tasks.find(t => t.id === overId);
 
-    if (!activeTask) return;
+    if (!activeTaskItem) return;
 
-    // If over a task in the same column, reorder
-    if (overTask && activeTask.columnId === overTask.columnId) {
-      const columnTasks = tasks.filter(t => t.columnId === activeTask.columnId);
+    if (overTask && activeTaskItem.columnId === overTask.columnId) {
+      const columnTasks = tasks.filter(t => t.columnId === activeTaskItem.columnId);
       const oldIndex = columnTasks.findIndex(t => t.id === activeId);
       const newIndex = columnTasks.findIndex(t => t.id === overId);
       
       const reorderedColumnTasks = arrayMove(columnTasks, oldIndex, newIndex);
-      const otherTasks = tasks.filter(t => t.columnId !== activeTask.columnId);
+      const otherTasks = tasks.filter(t => t.columnId !== activeTaskItem.columnId);
       
       setTasks([...otherTasks, ...reorderedColumnTasks]);
     }
@@ -225,25 +234,67 @@ const Projects = () => {
   return (
     <DashboardLayout title="Projets" subtitle="Site Web Refonte - Sprint 3">
       {/* Toolbar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-        <Tabs defaultValue="kanban">
-          <TabsList>
-            <TabsTrigger value="kanban" className="gap-2">
-              <LayoutGrid className="w-4 h-4" />
-              Kanban
-            </TabsTrigger>
-            <TabsTrigger value="list" className="gap-2">
-              <List className="w-4 h-4" />
-              Liste
-            </TabsTrigger>
-            <TabsTrigger value="calendar" className="gap-2">
-              <Calendar className="w-4 h-4" />
-              Calendrier
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 mb-6">
+        <div className="flex items-center gap-4 flex-wrap">
+          <Tabs value={currentView} onValueChange={setCurrentView}>
+            <TabsList>
+              <TabsTrigger value="kanban" className="gap-2">
+                <LayoutGrid className="w-4 h-4" />
+                Kanban
+              </TabsTrigger>
+              <TabsTrigger value="list" className="gap-2">
+                <List className="w-4 h-4" />
+                Liste
+              </TabsTrigger>
+              <TabsTrigger value="timeline" className="gap-2">
+                <GanttChart className="w-4 h-4" />
+                Timeline
+              </TabsTrigger>
+              <TabsTrigger value="calendar" className="gap-2">
+                <Calendar className="w-4 h-4" />
+                Calendrier
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
 
-        <div className="flex items-center gap-3">
+          {/* Online Users */}
+          <div className="hidden lg:block">
+            <PresenceIndicator maxDisplay={3} />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* AI Assistant */}
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
+                <Sparkles className="w-4 h-4" />
+                Assistant IA
+              </Button>
+            </SheetTrigger>
+            <SheetContent className="w-[400px] sm:w-[540px] p-0">
+              <AIAssistant className="h-full border-0 rounded-none" />
+            </SheetContent>
+          </Sheet>
+
+          {/* Activity Feed */}
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
+                <Activity className="w-4 h-4" />
+                Activité
+              </Button>
+            </SheetTrigger>
+            <SheetContent>
+              <SheetHeader>
+                <SheetTitle>Activité récente</SheetTitle>
+              </SheetHeader>
+              <div className="mt-6">
+                <ActivityFeed maxItems={15} />
+              </div>
+            </SheetContent>
+          </Sheet>
+
           <Button variant="outline" size="sm">
             <Filter className="w-4 h-4 mr-2" />
             Filtrer
@@ -261,35 +312,65 @@ const Projects = () => {
         </div>
       </div>
 
-      {/* Kanban Board with DnD */}
-      <DndContext
-        collisionDetection={closestCorners}
-        onDragStart={handleDragStart}
-        onDragOver={handleDragOver}
-        onDragEnd={handleDragEnd}
-      >
-        <div className="flex gap-6 overflow-x-auto pb-6 -mx-6 px-6">
-          {columns.map((column) => {
-            const columnTasks = getColumnTasks(column.id);
-            return (
-              <DroppableColumn
-                key={column.id}
-                id={column.id}
-                title={column.title}
-                count={columnTasks.length}
-                color={column.color}
-                tasks={columnTasks}
-                onAddTask={permissions.canCreateTask ? handleAddTask : undefined}
-                onEditTask={permissions.canEditTask ? handleEditTask : undefined}
-              />
-            );
-          })}
-        </div>
+      {/* Views */}
+      {currentView === 'kanban' && (
+        <DndContext
+          collisionDetection={closestCorners}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="flex gap-6 overflow-x-auto pb-6 -mx-6 px-6">
+            {columns.map((column) => {
+              const columnTasks = getColumnTasks(column.id);
+              return (
+                <DroppableColumn
+                  key={column.id}
+                  id={column.id}
+                  title={column.title}
+                  count={columnTasks.length}
+                  color={column.color}
+                  tasks={columnTasks}
+                  onAddTask={permissions.canCreateTask ? handleAddTask : undefined}
+                  onEditTask={permissions.canEditTask ? handleEditTask : undefined}
+                />
+              );
+            })}
+          </div>
 
-        <DragOverlay>
-          {activeTask && <DraggableTaskCard task={activeTask} />}
-        </DragOverlay>
-      </DndContext>
+          <DragOverlay>
+            {activeTask && <DraggableTaskCard task={activeTask} />}
+          </DragOverlay>
+        </DndContext>
+      )}
+
+      {currentView === 'list' && (
+        <ListView
+          tasks={tasks}
+          groupBy={groupBy}
+          onTaskClick={handleEditTask}
+        />
+      )}
+
+      {currentView === 'timeline' && (
+        <TimelineView
+          tasks={tasks}
+          onTaskClick={handleEditTask}
+        />
+      )}
+
+      {currentView === 'calendar' && (
+        <div className="bg-card border border-border rounded-xl p-8 text-center">
+          <Calendar className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+          <h3 className="font-semibold mb-2">Vue Calendrier</h3>
+          <p className="text-sm text-muted-foreground">
+            Accédez à la page Calendrier pour une vue complète avec gestion des événements.
+          </p>
+          <Button variant="outline" className="mt-4" onClick={() => window.location.href = '/calendar'}>
+            Ouvrir le calendrier
+          </Button>
+        </div>
+      )}
 
       {/* Task Form */}
       <TaskForm
