@@ -13,8 +13,7 @@ import { RealtimeProvider } from "@/contexts/RealtimeContext";
 import { AutomationProvider } from "@/contexts/AutomationContext";
 import { ChatWindow } from "@/components/chat/ChatWindow";
 import Index from "./pages/Index";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
+import Auth from "./pages/Auth";
 import WorkspaceSelect from "./pages/WorkspaceSelect";
 import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
@@ -52,8 +51,9 @@ const App = () => (
                           <Route path="/features" element={<FeaturesPage />} />
                           <Route path="/pricing" element={<PricingPage />} />
                           <Route path="/about" element={<AboutPage />} />
-                          <Route path="/login" element={<Login />} />
-                          <Route path="/register" element={<Register />} />
+                          <Route path="/auth" element={<Auth />} />
+                          <Route path="/login" element={<Auth />} />
+                          <Route path="/register" element={<Auth />} />
                           <Route path="/workspaces" element={<WorkspaceSelect />} />
                           <Route path="/join/:code" element={<WorkspaceSelect />} />
                           <Route path="/dashboard" element={<Dashboard />} />
