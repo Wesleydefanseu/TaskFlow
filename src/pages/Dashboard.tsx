@@ -1,7 +1,11 @@
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { StatsCard } from '@/components/dashboard/StatsCard';
 import { TaskCard } from '@/components/dashboard/TaskCard';
 import { useUser, usePermissions, roleLabels } from '@/contexts/UserContext';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
+import { supabase } from '@/integrations/supabase/client';
 import { 
   CheckCircle2, 
   Clock, 
@@ -13,106 +17,181 @@ import {
   Shield,
   FolderKanban,
   Settings,
-  Eye
+  Eye,
+  Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 
-const recentTasks = [
-  {
-    id: '1',
-    title: 'Finaliser le design de la landing page',
-    description: 'Compléter les maquettes pour mobile et desktop',
-    priority: 'high' as const,
-    dueDate: 'Aujourd\'hui',
-    assignees: [
-      { name: 'Marie-Claire Fotso', avatar: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=100' },
-      { name: 'Patrick Nganou', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100' },
-    ],
-    comments: 8,
-    attachments: 3,
-    labels: [{ name: 'Design', color: 'bg-primary/20 text-primary' }],
-  },
-  {
-    id: '2',
-    title: 'Intégration API de paiement',
-    description: 'Connecter Mobile Money pour les abonnements',
-    priority: 'urgent' as const,
-    dueDate: 'Demain',
-    assignees: [
-      { name: 'Emmanuel Ngono', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100' },
-    ],
-    comments: 5,
-    attachments: 1,
-    labels: [{ name: 'Backend', color: 'bg-accent/20 text-accent' }],
-  },
-  {
-    id: '3',
-    title: 'Tests unitaires composants',
-    priority: 'medium' as const,
-    dueDate: 'Dans 3 jours',
-    assignees: [
-      { name: 'Sandrine Tchamba', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100' },
-    ],
-    comments: 2,
-  },
-];
+interface Task {
+  id: string;
+  title: string;
+  description?: string;
+  priority: 'urgent' | 'high' | 'medium' | 'low';
+  due_date?: string;
+  status: string;
+}
 
-const teamMembers = [
-  { name: 'Jean-Paul Mbarga', role: 'Chef de projet', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100', status: 'online' },
-  { name: 'Marie-Claire Fotso', role: 'Développeur Senior', avatar: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=100', status: 'online' },
-  { name: 'Patrick Nganou', role: 'Designer', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100', status: 'away' },
-  { name: 'Sandrine Tchamba', role: 'QA', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100', status: 'offline' },
-];
-
-// Admin specific stats
-const adminStats = [
-  { title: 'Utilisateurs actifs', value: 156, change: '+23 ce mois', changeType: 'positive' as const, icon: Users },
-  { title: 'Projets actifs', value: 24, change: '+3 cette semaine', changeType: 'positive' as const, icon: FolderKanban },
-  { title: 'Tâches terminées', value: 892, change: '+12% vs mois dernier', changeType: 'positive' as const, icon: CheckCircle2 },
-  { title: 'Temps moyen', value: '2.3j', change: '-18% amélioration', changeType: 'positive' as const, icon: Clock },
-];
-
-// Chef de projet specific stats
-const chefProjetStats = [
-  { title: 'Mes projets', value: 8, change: '3 en cours', changeType: 'neutral' as const, icon: FolderKanban },
-  { title: 'Équipe', value: 12, change: '10 actifs', changeType: 'positive' as const, icon: Users },
-  { title: 'Tâches en retard', value: 3, change: 'À traiter', changeType: 'negative' as const, icon: Clock },
-  { title: 'Progression', value: '78%', change: '+5% cette semaine', changeType: 'positive' as const, icon: TrendingUp },
-];
-
-// Développeur specific stats
-const developpeurStats = [
-  { title: 'Mes tâches', value: 15, change: '5 urgentes', changeType: 'negative' as const, icon: CheckCircle2 },
-  { title: 'En cours', value: 4, change: '2 en revue', changeType: 'neutral' as const, icon: Clock },
-  { title: 'Terminées', value: 128, change: '+8 cette semaine', changeType: 'positive' as const, icon: TrendingUp },
-  { title: 'Sprint actuel', value: '67%', change: 'En bonne voie', changeType: 'positive' as const, icon: BarChart3 },
-];
-
-// Observateur specific stats
-const observateurStats = [
-  { title: 'Projets visibles', value: 12, change: 'Lecture seule', changeType: 'neutral' as const, icon: Eye },
-  { title: 'Tâches totales', value: 234, change: '45 en cours', changeType: 'neutral' as const, icon: CheckCircle2 },
-  { title: 'Membres équipe', value: 18, change: '15 actifs', changeType: 'neutral' as const, icon: Users },
-  { title: 'Progression globale', value: '72%', change: 'Tous projets', changeType: 'neutral' as const, icon: TrendingUp },
-];
-
-const getStatsForRole = (role: string) => {
-  switch (role) {
-    case 'admin': return adminStats;
-    case 'chef_projet': return chefProjetStats;
-    case 'developpeur': return developpeurStats;
-    case 'observateur': return observateurStats;
-    default: return developpeurStats;
-  }
-};
+interface Stats {
+  totalTasks: number;
+  completedTasks: number;
+  inProgressTasks: number;
+  membersCount: number;
+  projectsCount: number;
+}
 
 const Dashboard = () => {
-  const { user } = useUser();
+  const navigate = useNavigate();
+  const { user, isAuthenticated, isLoading: userLoading } = useUser();
+  const { currentWorkspace, projects, members, isLoading: workspaceLoading } = useWorkspace();
   const permissions = usePermissions();
-  const stats = getStatsForRole(user?.role || 'developpeur');
+  
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [stats, setStats] = useState<Stats>({
+    totalTasks: 0,
+    completedTasks: 0,
+    inProgressTasks: 0,
+    membersCount: 0,
+    projectsCount: 0,
+  });
+  const [isLoadingTasks, setIsLoadingTasks] = useState(true);
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!userLoading && !isAuthenticated) {
+      navigate('/auth');
+    }
+  }, [isAuthenticated, userLoading, navigate]);
+
+  // Redirect if no workspace selected
+  useEffect(() => {
+    if (!workspaceLoading && isAuthenticated && !currentWorkspace) {
+      navigate('/workspaces');
+    }
+  }, [currentWorkspace, workspaceLoading, isAuthenticated, navigate]);
+
+  // Fetch tasks from database
+  useEffect(() => {
+    const fetchTasks = async () => {
+      if (!currentWorkspace) return;
+
+      try {
+        // Get all boards for current workspace projects
+        const projectIds = projects.map(p => p.id);
+        if (projectIds.length === 0) {
+          setTasks([]);
+          setIsLoadingTasks(false);
+          return;
+        }
+
+        const { data: boards } = await supabase
+          .from('boards')
+          .select('id')
+          .in('project_id', projectIds);
+
+        if (!boards || boards.length === 0) {
+          setTasks([]);
+          setIsLoadingTasks(false);
+          return;
+        }
+
+        const boardIds = boards.map(b => b.id);
+
+        // Get recent tasks
+        const { data: tasksData, error } = await supabase
+          .from('tasks')
+          .select('*')
+          .in('board_id', boardIds)
+          .order('created_at', { ascending: false })
+          .limit(5);
+
+        if (error) throw error;
+
+        setTasks(tasksData || []);
+
+        // Calculate stats
+        const { count: totalCount } = await supabase
+          .from('tasks')
+          .select('*', { count: 'exact', head: true })
+          .in('board_id', boardIds);
+
+        const { count: completedCount } = await supabase
+          .from('tasks')
+          .select('*', { count: 'exact', head: true })
+          .in('board_id', boardIds)
+          .eq('status', 'done');
+
+        const { count: inProgressCount } = await supabase
+          .from('tasks')
+          .select('*', { count: 'exact', head: true })
+          .in('board_id', boardIds)
+          .eq('status', 'in_progress');
+
+        setStats({
+          totalTasks: totalCount || 0,
+          completedTasks: completedCount || 0,
+          inProgressTasks: inProgressCount || 0,
+          membersCount: members.length,
+          projectsCount: projects.length,
+        });
+      } catch (error) {
+        console.error('Error fetching tasks:', error);
+      } finally {
+        setIsLoadingTasks(false);
+      }
+    };
+
+    if (!workspaceLoading && projects.length >= 0) {
+      fetchTasks();
+    }
+  }, [currentWorkspace, projects, members, workspaceLoading]);
+
+  const getStatsForRole = () => {
+    const role = user?.role || 'developpeur';
+    
+    switch (role) {
+      case 'admin':
+        return [
+          { title: 'Membres', value: stats.membersCount, change: 'Espace de travail', changeType: 'positive' as const, icon: Users },
+          { title: 'Projets actifs', value: stats.projectsCount, change: 'Total', changeType: 'positive' as const, icon: FolderKanban },
+          { title: 'Tâches terminées', value: stats.completedTasks, change: `/${stats.totalTasks} total`, changeType: 'positive' as const, icon: CheckCircle2 },
+          { title: 'En cours', value: stats.inProgressTasks, change: 'Tâches', changeType: 'neutral' as const, icon: Clock },
+        ];
+      case 'chef_projet':
+        return [
+          { title: 'Mes projets', value: stats.projectsCount, change: 'Assignés', changeType: 'neutral' as const, icon: FolderKanban },
+          { title: 'Équipe', value: stats.membersCount, change: 'Membres', changeType: 'positive' as const, icon: Users },
+          { title: 'Tâches terminées', value: stats.completedTasks, change: 'Cette période', changeType: 'positive' as const, icon: CheckCircle2 },
+          { title: 'En cours', value: stats.inProgressTasks, change: 'À suivre', changeType: 'neutral' as const, icon: TrendingUp },
+        ];
+      case 'developpeur':
+        return [
+          { title: 'Mes tâches', value: stats.totalTasks, change: 'Assignées', changeType: 'neutral' as const, icon: CheckCircle2 },
+          { title: 'En cours', value: stats.inProgressTasks, change: 'Actives', changeType: 'neutral' as const, icon: Clock },
+          { title: 'Terminées', value: stats.completedTasks, change: 'Complétées', changeType: 'positive' as const, icon: TrendingUp },
+          { title: 'Projets', value: stats.projectsCount, change: 'Actifs', changeType: 'positive' as const, icon: BarChart3 },
+        ];
+      default:
+        return [
+          { title: 'Projets visibles', value: stats.projectsCount, change: 'Lecture seule', changeType: 'neutral' as const, icon: Eye },
+          { title: 'Tâches totales', value: stats.totalTasks, change: 'Toutes', changeType: 'neutral' as const, icon: CheckCircle2 },
+          { title: 'Membres', value: stats.membersCount, change: 'Équipe', changeType: 'neutral' as const, icon: Users },
+          { title: 'Terminées', value: stats.completedTasks, change: 'Complétées', changeType: 'neutral' as const, icon: TrendingUp },
+        ];
+    }
+  };
+
+  if (userLoading || workspaceLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  const displayStats = getStatsForRole();
 
   return (
     <DashboardLayout 
@@ -125,6 +204,12 @@ const Dashboard = () => {
           <Shield className="w-4 h-4" />
           {roleLabels[user?.role || 'developpeur']}
         </Badge>
+        {currentWorkspace && (
+          <Badge variant="secondary" className="gap-2 py-1.5 px-3">
+            <FolderKanban className="w-4 h-4" />
+            {currentWorkspace.name}
+          </Badge>
+        )}
         {user?.role === 'admin' && (
           <Link to="/settings">
             <Button variant="outline" size="sm">
@@ -137,7 +222,7 @@ const Dashboard = () => {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {stats.map((stat, index) => (
+        {displayStats.map((stat, index) => (
           <StatsCard
             key={index}
             title={stat.title}
@@ -164,11 +249,36 @@ const Dashboard = () => {
               </Button>
             </Link>
           </div>
-          <div className="space-y-4">
-            {recentTasks.map((task) => (
-              <TaskCard key={task.id} {...task} />
-            ))}
-          </div>
+          {isLoadingTasks ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : tasks.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <CheckCircle2 className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p>Aucune tâche pour le moment</p>
+              <Link to="/projects">
+                <Button variant="outline" size="sm" className="mt-4">
+                  Créer une tâche
+                </Button>
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {tasks.map((task) => (
+                <TaskCard 
+                  key={task.id}
+                  title={task.title}
+                  description={task.description}
+                  priority={task.priority}
+                  dueDate={task.due_date ? new Date(task.due_date).toLocaleDateString('fr-FR') : undefined}
+                  assignees={[]}
+                  comments={0}
+                />
+              ))}
+            </div>
+            </div>
+          )}
         </div>
 
         {/* Team & Quick Actions */}
@@ -183,26 +293,33 @@ const Dashboard = () => {
                 </Button>
               </Link>
             </div>
-            <div className="space-y-4">
-              {teamMembers.map((member, index) => (
-                <div key={index} className="flex items-center gap-3">
-                  <div className="relative">
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={member.avatar} />
-                      <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                    <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-card ${
-                      member.status === 'online' ? 'bg-status-done' :
-                      member.status === 'away' ? 'bg-status-progress' : 'bg-muted'
-                    }`} />
+            {members.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                Aucun membre
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {members.slice(0, 4).map((member) => (
+                  <div key={member.id} className="flex items-center gap-3">
+                    <div className="relative">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={member.profile?.avatar_url || undefined} />
+                        <AvatarFallback>
+                          {(member.profile?.full_name || member.profile?.email || 'U').charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-card bg-status-done" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">
+                        {member.profile?.full_name || member.profile?.email || 'Utilisateur'}
+                      </p>
+                      <p className="text-xs text-muted-foreground capitalize">{member.role}</p>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">{member.name}</p>
-                    <p className="text-xs text-muted-foreground">{member.role}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Quick Actions - filtered by permissions */}

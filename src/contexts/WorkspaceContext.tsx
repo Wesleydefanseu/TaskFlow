@@ -1,349 +1,418 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { UserRole } from './UserContext';
+import { supabase } from '@/integrations/supabase/client';
+import { useUser, UserRole, mapAppRoleToUserRole, mapUserRoleToAppRole } from './UserContext';
+import { Database } from '@/integrations/supabase/types';
 
-export interface WorkspaceMember {
-  id: string;
-  name: string;
-  email: string;
-  role: UserRole;
-  avatar: string;
-  phone: string;
-  joinedAt: string;
-}
+type Workspace = Database['public']['Tables']['workspaces']['Row'];
+type Project = Database['public']['Tables']['projects']['Row'];
+type Board = Database['public']['Tables']['boards']['Row'];
+type WorkspaceMemberRow = Database['public']['Tables']['workspace_members']['Row'];
 
-export interface Project {
-  id: string;
-  name: string;
-  description: string;
-  color: string;
-  status: 'planning' | 'active' | 'completed' | 'on-hold';
-  startDate: string;
-  endDate: string;
-  managerId: string;
-  memberIds: string[];
-  createdAt: string;
-}
-
-export interface Board {
-  id: string;
-  name: string;
-  projectId: string;
-  columns: { id: string; title: string; color: string }[];
-  createdAt: string;
-}
-
-export interface Workspace {
-  id: string;
-  name: string;
-  description: string;
-  logo?: string;
-  industry: string;
-  ownerId: string;
-  members: WorkspaceMember[];
-  projects: Project[];
-  boards: Board[];
-  inviteCode: string;
-  createdAt: string;
+interface WorkspaceMember extends WorkspaceMemberRow {
+  profile?: {
+    id: string;
+    full_name: string | null;
+    email: string;
+    avatar_url: string | null;
+  };
 }
 
 interface WorkspaceContextType {
   workspaces: Workspace[];
   currentWorkspace: Workspace | null;
   setCurrentWorkspace: (workspace: Workspace | null) => void;
-  createWorkspace: (data: Omit<Workspace, 'id' | 'members' | 'projects' | 'boards' | 'inviteCode' | 'createdAt'>) => Workspace;
-  updateWorkspace: (id: string, data: Partial<Workspace>) => void;
-  deleteWorkspace: (id: string) => void;
-  addMember: (workspaceId: string, member: Omit<WorkspaceMember, 'id' | 'joinedAt'>) => void;
-  removeMember: (workspaceId: string, memberId: string) => void;
-  addProject: (workspaceId: string, project: Omit<Project, 'id' | 'createdAt'>) => Project;
-  updateProject: (workspaceId: string, projectId: string, data: Partial<Project>) => void;
-  deleteProject: (workspaceId: string, projectId: string) => void;
-  addBoard: (workspaceId: string, board: Omit<Board, 'id' | 'createdAt'>) => Board;
-  updateBoard: (workspaceId: string, boardId: string, data: Partial<Board>) => void;
-  deleteBoard: (workspaceId: string, boardId: string) => void;
-  joinWorkspaceByCode: (code: string, member: Omit<WorkspaceMember, 'id' | 'joinedAt'>) => Workspace | null;
-  generateInviteLink: (workspaceId: string) => string;
+  projects: Project[];
+  boards: Board[];
+  members: WorkspaceMember[];
+  isLoading: boolean;
+  createWorkspace: (name: string, description?: string) => Promise<Workspace | null>;
+  updateWorkspace: (id: string, data: Partial<Workspace>) => Promise<void>;
+  deleteWorkspace: (id: string) => Promise<void>;
+  addMember: (email: string, role: UserRole) => Promise<void>;
+  removeMember: (memberId: string) => Promise<void>;
+  addProject: (name: string, description?: string, color?: string) => Promise<Project | null>;
+  updateProject: (projectId: string, data: Partial<Project>) => Promise<void>;
+  deleteProject: (projectId: string) => Promise<void>;
+  addBoard: (projectId: string, name: string, description?: string) => Promise<Board | null>;
+  joinWorkspaceByCode: (code: string) => Promise<Workspace | null>;
+  generateInviteLink: () => string;
   getUserProjects: (userId: string, userRole: UserRole) => Project[];
+  refreshData: () => Promise<void>;
 }
 
 const WorkspaceContext = createContext<WorkspaceContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'taskflow_workspaces';
-
-const generateId = () => Math.random().toString(36).substring(2, 11);
-const generateInviteCode = () => Math.random().toString(36).substring(2, 8).toUpperCase();
-
-// Cameroon team members for demo
-const cameroonMembers: Omit<WorkspaceMember, 'id' | 'joinedAt'>[] = [
-  { name: 'Emmanuel Ngono', email: 'emmanuel.ngono@techcam.cm', role: 'admin', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100', phone: '+237 690 123 456' },
-  { name: 'Marie-Claire Fotso', email: 'mc.fotso@techcam.cm', role: 'chef_projet', avatar: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=100', phone: '+237 691 234 567' },
-  { name: 'Jean-Paul Mbarga', email: 'jp.mbarga@techcam.cm', role: 'developpeur', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100', phone: '+237 692 345 678' },
-  { name: 'Sandrine Tchamba', email: 's.tchamba@techcam.cm', role: 'developpeur', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100', phone: '+237 693 456 789' },
-  { name: 'Patrick Nganou', email: 'p.nganou@techcam.cm', role: 'observateur', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100', phone: '+237 694 567 890' },
-];
-
-const createDemoWorkspace = (): Workspace => {
-  const members = cameroonMembers.map((m, i) => ({
-    ...m,
-    id: `member-${i + 1}`,
-    joinedAt: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
-  }));
-
-  const projects: Project[] = [
-    {
-      id: 'proj-1',
-      name: 'Site Web Refonte',
-      description: 'Refonte complète du site web corporate',
-      color: 'bg-primary',
-      status: 'active',
-      startDate: '2024-01-15',
-      endDate: '2024-06-30',
-      managerId: 'member-2',
-      memberIds: ['member-2', 'member-3', 'member-4'],
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'proj-2',
-      name: 'App Mobile',
-      description: 'Application mobile iOS et Android',
-      color: 'bg-accent',
-      status: 'active',
-      startDate: '2024-02-01',
-      endDate: '2024-08-15',
-      managerId: 'member-2',
-      memberIds: ['member-2', 'member-3'],
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'proj-3',
-      name: 'Marketing Q1',
-      description: 'Campagne marketing premier trimestre',
-      color: 'bg-status-progress',
-      status: 'completed',
-      startDate: '2024-01-01',
-      endDate: '2024-03-31',
-      managerId: 'member-1',
-      memberIds: ['member-1', 'member-5'],
-      createdAt: new Date().toISOString(),
-    },
-  ];
-
-  const boards: Board[] = [
-    {
-      id: 'board-1',
-      name: 'Sprint 3',
-      projectId: 'proj-1',
-      columns: [
-        { id: 'todo', title: 'À faire', color: 'bg-muted-foreground' },
-        { id: 'in-progress', title: 'En cours', color: 'bg-status-progress' },
-        { id: 'review', title: 'En revue', color: 'bg-status-review' },
-        { id: 'done', title: 'Terminé', color: 'bg-status-done' },
-      ],
-      createdAt: new Date().toISOString(),
-    },
-  ];
-
-  return {
-    id: 'ws-demo',
-    name: 'TechCam Solutions',
-    description: 'Entreprise de développement logiciel basée à Douala',
-    industry: 'Technologie',
-    logo: undefined,
-    ownerId: 'member-1',
-    members,
-    projects,
-    boards,
-    inviteCode: 'TECH2024',
-    createdAt: new Date().toISOString(),
-  };
-};
-
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
-  const [workspaces, setWorkspaces] = useState<Workspace[]>(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        return JSON.parse(stored);
-      } catch {
-        return [createDemoWorkspace()];
-      }
-    }
-    return [createDemoWorkspace()];
-  });
+  const { supabaseUser, isLoading: userLoading } = useUser();
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  const [currentWorkspace, setCurrentWorkspace] = useState<Workspace | null>(null);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [boards, setBoards] = useState<Board[]>([]);
+  const [members, setMembers] = useState<WorkspaceMember[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const [currentWorkspace, setCurrentWorkspace] = useState<Workspace | null>(() => {
-    const storedCurrent = localStorage.getItem('taskflow_current_workspace');
-    if (storedCurrent) {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const ws = JSON.parse(stored);
-        return ws.find((w: Workspace) => w.id === storedCurrent) || ws[0] || null;
-      }
+  // Fetch user's workspaces
+  const fetchWorkspaces = async () => {
+    if (!supabaseUser) {
+      setWorkspaces([]);
+      setCurrentWorkspace(null);
+      setIsLoading(false);
+      return;
     }
-    return workspaces[0] || null;
-  });
+
+    try {
+      const { data, error } = await supabase
+        .from('workspace_members')
+        .select(`
+          workspace_id,
+          workspaces (*)
+        `)
+        .eq('user_id', supabaseUser.id);
+
+      if (error) throw error;
+
+      const userWorkspaces = data
+        ?.map(item => item.workspaces)
+        .filter(Boolean) as Workspace[];
+
+      setWorkspaces(userWorkspaces || []);
+
+      // Set current workspace from localStorage or first one
+      const savedWorkspaceId = localStorage.getItem('current_workspace_id');
+      const savedWorkspace = userWorkspaces?.find(w => w.id === savedWorkspaceId);
+      
+      if (savedWorkspace) {
+        setCurrentWorkspace(savedWorkspace);
+      } else if (userWorkspaces?.length > 0) {
+        setCurrentWorkspace(userWorkspaces[0]);
+      }
+    } catch (error) {
+      console.error('Error fetching workspaces:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Fetch workspace data (projects, boards, members)
+  const fetchWorkspaceData = async () => {
+    if (!currentWorkspace) {
+      setProjects([]);
+      setBoards([]);
+      setMembers([]);
+      return;
+    }
+
+    try {
+      // Fetch projects
+      const { data: projectsData } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('workspace_id', currentWorkspace.id)
+        .order('created_at', { ascending: false });
+
+      setProjects(projectsData || []);
+
+      // Fetch boards for all projects
+      if (projectsData && projectsData.length > 0) {
+        const projectIds = projectsData.map(p => p.id);
+        const { data: boardsData } = await supabase
+          .from('boards')
+          .select('*')
+          .in('project_id', projectIds);
+
+        setBoards(boardsData || []);
+      } else {
+        setBoards([]);
+      }
+
+      // Fetch members
+      const { data: membersData } = await supabase
+        .from('workspace_members')
+        .select('*')
+        .eq('workspace_id', currentWorkspace.id);
+
+      // Fetch profiles separately for each member
+      if (membersData && membersData.length > 0) {
+        const userIds = membersData.map(m => m.user_id);
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('*')
+          .in('id', userIds);
+
+        const membersWithProfiles: WorkspaceMember[] = membersData.map(member => ({
+          ...member,
+          profile: profilesData?.find(p => p.id === member.user_id) || undefined,
+        }));
+
+        setMembers(membersWithProfiles);
+      } else {
+        setMembers([]);
+      }
+    } catch (error) {
+      console.error('Error fetching workspace data:', error);
+    }
+  };
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(workspaces));
-  }, [workspaces]);
+    if (!userLoading) {
+      fetchWorkspaces();
+    }
+  }, [supabaseUser, userLoading]);
 
   useEffect(() => {
     if (currentWorkspace) {
-      localStorage.setItem('taskflow_current_workspace', currentWorkspace.id);
+      localStorage.setItem('current_workspace_id', currentWorkspace.id);
+      fetchWorkspaceData();
     }
   }, [currentWorkspace]);
 
-  const createWorkspace = (data: Omit<Workspace, 'id' | 'members' | 'projects' | 'boards' | 'inviteCode' | 'createdAt'>) => {
-    const newWorkspace: Workspace = {
-      ...data,
-      id: generateId(),
-      members: [],
-      projects: [],
-      boards: [],
-      inviteCode: generateInviteCode(),
-      createdAt: new Date().toISOString(),
-    };
-    setWorkspaces(prev => [...prev, newWorkspace]);
-    return newWorkspace;
+  const refreshData = async () => {
+    await fetchWorkspaces();
+    await fetchWorkspaceData();
   };
 
-  const updateWorkspace = (id: string, data: Partial<Workspace>) => {
-    setWorkspaces(prev => prev.map(w => w.id === id ? { ...w, ...data } : w));
-    if (currentWorkspace?.id === id) {
-      setCurrentWorkspace(prev => prev ? { ...prev, ...data } : prev);
-    }
-  };
+  const createWorkspace = async (name: string, description?: string): Promise<Workspace | null> => {
+    if (!supabaseUser) return null;
 
-  const deleteWorkspace = (id: string) => {
-    setWorkspaces(prev => prev.filter(w => w.id !== id));
-    if (currentWorkspace?.id === id) {
-      setCurrentWorkspace(workspaces.find(w => w.id !== id) || null);
-    }
-  };
+    try {
+      const slug = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+      const invitationCode = Math.random().toString(36).substring(2, 8).toUpperCase();
 
-  const addMember = (workspaceId: string, member: Omit<WorkspaceMember, 'id' | 'joinedAt'>) => {
-    const newMember: WorkspaceMember = {
-      ...member,
-      id: generateId(),
-      joinedAt: new Date().toISOString(),
-    };
-    setWorkspaces(prev => prev.map(w => 
-      w.id === workspaceId ? { ...w, members: [...w.members, newMember] } : w
-    ));
-    if (currentWorkspace?.id === workspaceId) {
-      setCurrentWorkspace(prev => prev ? { ...prev, members: [...prev.members, newMember] } : prev);
-    }
-  };
+      const { data: workspace, error } = await supabase
+        .from('workspaces')
+        .insert({
+          name,
+          description,
+          slug,
+          invitation_code: invitationCode,
+          created_by: supabaseUser.id,
+        })
+        .select()
+        .single();
 
-  const removeMember = (workspaceId: string, memberId: string) => {
-    setWorkspaces(prev => prev.map(w => 
-      w.id === workspaceId ? { ...w, members: w.members.filter(m => m.id !== memberId) } : w
-    ));
-    if (currentWorkspace?.id === workspaceId) {
-      setCurrentWorkspace(prev => prev ? { ...prev, members: prev.members.filter(m => m.id !== memberId) } : prev);
-    }
-  };
+      if (error) throw error;
 
-  const addProject = (workspaceId: string, project: Omit<Project, 'id' | 'createdAt'>) => {
-    const newProject: Project = {
-      ...project,
-      id: generateId(),
-      createdAt: new Date().toISOString(),
-    };
-    setWorkspaces(prev => prev.map(w => 
-      w.id === workspaceId ? { ...w, projects: [...w.projects, newProject] } : w
-    ));
-    if (currentWorkspace?.id === workspaceId) {
-      setCurrentWorkspace(prev => prev ? { ...prev, projects: [...prev.projects, newProject] } : prev);
-    }
-    return newProject;
-  };
+      // Add creator as owner
+      await supabase
+        .from('workspace_members')
+        .insert({
+          workspace_id: workspace.id,
+          user_id: supabaseUser.id,
+          role: 'owner',
+        });
 
-  const updateProject = (workspaceId: string, projectId: string, data: Partial<Project>) => {
-    setWorkspaces(prev => prev.map(w => 
-      w.id === workspaceId ? { ...w, projects: w.projects.map(p => p.id === projectId ? { ...p, ...data } : p) } : w
-    ));
-    if (currentWorkspace?.id === workspaceId) {
-      setCurrentWorkspace(prev => prev ? { ...prev, projects: prev.projects.map(p => p.id === projectId ? { ...p, ...data } : p) } : prev);
-    }
-  };
-
-  const deleteProject = (workspaceId: string, projectId: string) => {
-    setWorkspaces(prev => prev.map(w => 
-      w.id === workspaceId ? { ...w, projects: w.projects.filter(p => p.id !== projectId) } : w
-    ));
-    if (currentWorkspace?.id === workspaceId) {
-      setCurrentWorkspace(prev => prev ? { ...prev, projects: prev.projects.filter(p => p.id !== projectId) } : prev);
-    }
-  };
-
-  const addBoard = (workspaceId: string, board: Omit<Board, 'id' | 'createdAt'>) => {
-    const newBoard: Board = {
-      ...board,
-      id: generateId(),
-      createdAt: new Date().toISOString(),
-    };
-    setWorkspaces(prev => prev.map(w => 
-      w.id === workspaceId ? { ...w, boards: [...w.boards, newBoard] } : w
-    ));
-    if (currentWorkspace?.id === workspaceId) {
-      setCurrentWorkspace(prev => prev ? { ...prev, boards: [...prev.boards, newBoard] } : prev);
-    }
-    return newBoard;
-  };
-
-  const updateBoard = (workspaceId: string, boardId: string, data: Partial<Board>) => {
-    setWorkspaces(prev => prev.map(w => 
-      w.id === workspaceId ? { ...w, boards: w.boards.map(b => b.id === boardId ? { ...b, ...data } : b) } : w
-    ));
-    if (currentWorkspace?.id === workspaceId) {
-      setCurrentWorkspace(prev => prev ? { ...prev, boards: prev.boards.map(b => b.id === boardId ? { ...b, ...data } : b) } : prev);
-    }
-  };
-
-  const deleteBoard = (workspaceId: string, boardId: string) => {
-    setWorkspaces(prev => prev.map(w => 
-      w.id === workspaceId ? { ...w, boards: w.boards.filter(b => b.id !== boardId) } : w
-    ));
-    if (currentWorkspace?.id === workspaceId) {
-      setCurrentWorkspace(prev => prev ? { ...prev, boards: prev.boards.filter(b => b.id !== boardId) } : prev);
-    }
-  };
-
-  const joinWorkspaceByCode = (code: string, member: Omit<WorkspaceMember, 'id' | 'joinedAt'>) => {
-    const workspace = workspaces.find(w => w.inviteCode === code.toUpperCase());
-    if (workspace) {
-      addMember(workspace.id, member);
+      await fetchWorkspaces();
+      setCurrentWorkspace(workspace);
       return workspace;
+    } catch (error) {
+      console.error('Error creating workspace:', error);
+      return null;
     }
-    return null;
   };
 
-  const generateInviteLink = (workspaceId: string) => {
-    const workspace = workspaces.find(w => w.id === workspaceId);
-    if (workspace) {
-      return `${window.location.origin}/join/${workspace.inviteCode}`;
+  const updateWorkspace = async (id: string, data: Partial<Workspace>) => {
+    try {
+      const { error } = await supabase
+        .from('workspaces')
+        .update(data)
+        .eq('id', id);
+
+      if (error) throw error;
+      await fetchWorkspaces();
+    } catch (error) {
+      console.error('Error updating workspace:', error);
     }
-    return '';
   };
 
-  const getUserProjects = (userId: string, userRole: UserRole) => {
-    if (!currentWorkspace) return [];
-    
-    // Admin voit tous les projets
+  const deleteWorkspace = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('workspaces')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      await fetchWorkspaces();
+    } catch (error) {
+      console.error('Error deleting workspace:', error);
+    }
+  };
+
+  const addMember = async (email: string, role: UserRole) => {
+    if (!currentWorkspace) return;
+
+    try {
+      // Find user by email
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', email)
+        .single();
+
+      if (!profile) {
+        throw new Error('User not found');
+      }
+
+      const appRole = mapUserRoleToAppRole(role);
+
+      await supabase
+        .from('workspace_members')
+        .insert({
+          workspace_id: currentWorkspace.id,
+          user_id: profile.id,
+          role: appRole,
+        });
+
+      await fetchWorkspaceData();
+    } catch (error) {
+      console.error('Error adding member:', error);
+      throw error;
+    }
+  };
+
+  const removeMember = async (memberId: string) => {
+    try {
+      const { error } = await supabase
+        .from('workspace_members')
+        .delete()
+        .eq('id', memberId);
+
+      if (error) throw error;
+      await fetchWorkspaceData();
+    } catch (error) {
+      console.error('Error removing member:', error);
+    }
+  };
+
+  const addProject = async (name: string, description?: string, color?: string): Promise<Project | null> => {
+    if (!currentWorkspace || !supabaseUser) return null;
+
+    try {
+      const { data: project, error } = await supabase
+        .from('projects')
+        .insert({
+          workspace_id: currentWorkspace.id,
+          name,
+          description,
+          color,
+          created_by: supabaseUser.id,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Create a default board for the project
+      await supabase
+        .from('boards')
+        .insert({
+          project_id: project.id,
+          name: 'Tableau principal',
+          is_default: true,
+        });
+
+      await fetchWorkspaceData();
+      return project;
+    } catch (error) {
+      console.error('Error creating project:', error);
+      return null;
+    }
+  };
+
+  const updateProject = async (projectId: string, data: Partial<Project>) => {
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .update(data)
+        .eq('id', projectId);
+
+      if (error) throw error;
+      await fetchWorkspaceData();
+    } catch (error) {
+      console.error('Error updating project:', error);
+    }
+  };
+
+  const deleteProject = async (projectId: string) => {
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .delete()
+        .eq('id', projectId);
+
+      if (error) throw error;
+      await fetchWorkspaceData();
+    } catch (error) {
+      console.error('Error deleting project:', error);
+    }
+  };
+
+  const addBoard = async (projectId: string, name: string, description?: string): Promise<Board | null> => {
+    try {
+      const { data: board, error } = await supabase
+        .from('boards')
+        .insert({
+          project_id: projectId,
+          name,
+          description,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      await fetchWorkspaceData();
+      return board;
+    } catch (error) {
+      console.error('Error creating board:', error);
+      return null;
+    }
+  };
+
+  const joinWorkspaceByCode = async (code: string): Promise<Workspace | null> => {
+    if (!supabaseUser) return null;
+
+    try {
+      const { data: workspace, error } = await supabase
+        .from('workspaces')
+        .select('*')
+        .eq('invitation_code', code.toUpperCase())
+        .single();
+
+      if (error || !workspace) {
+        throw new Error('Workspace not found');
+      }
+
+      // Add user as member
+      await supabase
+        .from('workspace_members')
+        .insert({
+          workspace_id: workspace.id,
+          user_id: supabaseUser.id,
+          role: 'member',
+        });
+
+      await fetchWorkspaces();
+      setCurrentWorkspace(workspace);
+      return workspace;
+    } catch (error) {
+      console.error('Error joining workspace:', error);
+      return null;
+    }
+  };
+
+  const generateInviteLink = (): string => {
+    if (!currentWorkspace?.invitation_code) return '';
+    return `${window.location.origin}/join/${currentWorkspace.invitation_code}`;
+  };
+
+  const getUserProjects = (userId: string, userRole: UserRole): Project[] => {
+    // Admin sees all projects
     if (userRole === 'admin') {
-      return currentWorkspace.projects;
+      return projects;
     }
     
-    // Chef de projet voit uniquement les projets où il est manager ou membre
-    if (userRole === 'chef_projet') {
-      return currentWorkspace.projects.filter(p => 
-        p.managerId === userId || p.memberIds.includes(userId)
-      );
-    }
-    
-    // Développeur et observateur voient les projets où ils sont membres
-    return currentWorkspace.projects.filter(p => p.memberIds.includes(userId));
+    // For now, return all projects - proper filtering would need project_members check
+    return projects;
   };
 
   return (
@@ -351,6 +420,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       workspaces,
       currentWorkspace,
       setCurrentWorkspace,
+      projects,
+      boards,
+      members,
+      isLoading,
       createWorkspace,
       updateWorkspace,
       deleteWorkspace,
@@ -360,11 +433,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       updateProject,
       deleteProject,
       addBoard,
-      updateBoard,
-      deleteBoard,
       joinWorkspaceByCode,
       generateInviteLink,
       getUserProjects,
+      refreshData,
     }}>
       {children}
     </WorkspaceContext.Provider>
