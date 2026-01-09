@@ -8,35 +8,27 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { usePermissions } from '@/contexts/UserContext';
-import { Plus, LayoutGrid, Trash2, MoreHorizontal } from 'lucide-react';
+import { Plus, LayoutGrid, Trash2, MoreHorizontal, Loader2 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
-
-const defaultColumns = [
-  { id: 'todo', title: 'À faire', color: 'bg-muted-foreground' },
-  { id: 'in-progress', title: 'En cours', color: 'bg-status-progress' },
-  { id: 'review', title: 'En revue', color: 'bg-status-review' },
-  { id: 'done', title: 'Terminé', color: 'bg-status-done' },
-];
+import { supabase } from '@/integrations/supabase/client';
 
 const Boards = () => {
   const navigate = useNavigate();
-  const { currentWorkspace, addBoard, deleteBoard } = useWorkspace();
+  const { projects, boards, addBoard, isLoading } = useWorkspace();
   const permissions = usePermissions();
   
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedBoardId, setSelectedBoardId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [boardName, setBoardName] = useState('');
   const [selectedProjectId, setSelectedProjectId] = useState('');
 
-  const boards = currentWorkspace?.boards || [];
-  const projects = currentWorkspace?.projects || [];
-
-  const handleCreateBoard = () => {
+  const handleCreateBoard = async () => {
     if (!boardName.trim()) {
       toast.error('Le nom du tableau est requis');
       return;
@@ -45,27 +37,41 @@ const Boards = () => {
       toast.error('Veuillez sélectionner un projet');
       return;
     }
-    if (!currentWorkspace) return;
 
-    addBoard(currentWorkspace.id, {
-      name: boardName,
-      projectId: selectedProjectId,
-      columns: defaultColumns,
-    });
-
-    toast.success('Tableau créé avec succès!');
-    setCreateDialogOpen(false);
-    setBoardName('');
-    setSelectedProjectId('');
+    setIsSubmitting(true);
+    try {
+      await addBoard(selectedProjectId, boardName);
+      toast.success('Tableau créé avec succès!');
+      setCreateDialogOpen(false);
+      setBoardName('');
+      setSelectedProjectId('');
+    } catch (error) {
+      toast.error('Erreur lors de la création');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleDeleteBoard = () => {
-    if (!currentWorkspace || !selectedBoardId) return;
+  const handleDeleteBoard = async () => {
+    if (!selectedBoardId) return;
     
-    deleteBoard(currentWorkspace.id, selectedBoardId);
-    toast.success('Tableau supprimé');
-    setDeleteDialogOpen(false);
-    setSelectedBoardId(null);
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase
+        .from('boards')
+        .delete()
+        .eq('id', selectedBoardId);
+
+      if (error) throw error;
+      
+      toast.success('Tableau supprimé');
+      setDeleteDialogOpen(false);
+      setSelectedBoardId(null);
+    } catch (error) {
+      toast.error('Erreur lors de la suppression');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const getProjectName = (projectId: string) => {
@@ -77,6 +83,16 @@ const Boards = () => {
     const project = projects.find(p => p.id === projectId);
     return project?.color || 'bg-muted';
   };
+
+  if (isLoading) {
+    return (
+      <DashboardLayout title="Tableaux" subtitle="Gérez vos tableaux Kanban">
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout title="Tableaux" subtitle="Gérez vos tableaux Kanban">
@@ -116,7 +132,7 @@ const Boards = () => {
                       {projects.map((project) => (
                         <SelectItem key={project.id} value={project.id}>
                           <div className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full ${project.color}`} />
+                            <div className={`w-2 h-2 rounded-full ${project.color || 'bg-primary'}`} />
                             {project.name}
                           </div>
                         </SelectItem>
@@ -124,7 +140,12 @@ const Boards = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <Button onClick={handleCreateBoard} className="w-full">
+                <Button 
+                  onClick={handleCreateBoard} 
+                  className="w-full"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                   Créer le tableau
                 </Button>
               </div>
@@ -164,8 +185,8 @@ const Boards = () => {
                     {board.name}
                   </CardTitle>
                   <CardDescription className="mt-1">
-                    <span className={`inline-block w-2 h-2 rounded-full ${getProjectColor(board.projectId)} mr-2`} />
-                    {getProjectName(board.projectId)}
+                    <span className={`inline-block w-2 h-2 rounded-full ${getProjectColor(board.project_id)} mr-2`} />
+                    {getProjectName(board.project_id)}
                   </CardDescription>
                 </div>
                 {permissions.canDeleteProject && (
@@ -192,13 +213,19 @@ const Boards = () => {
                 )}
               </CardHeader>
               <CardContent>
-                <div className="flex gap-2">
-                  {board.columns.map((col) => (
-                    <div key={col.id} className="flex items-center gap-1">
-                      <div className={`w-2 h-2 rounded-full ${col.color}`} />
-                      <span className="text-xs text-muted-foreground">{col.title}</span>
-                    </div>
-                  ))}
+                <div className="flex gap-2 flex-wrap">
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 rounded-full bg-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">À faire</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 rounded-full bg-status-progress" />
+                    <span className="text-xs text-muted-foreground">En cours</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 rounded-full bg-status-done" />
+                    <span className="text-xs text-muted-foreground">Terminé</span>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -216,7 +243,12 @@ const Boards = () => {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Annuler</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteBoard} className="bg-destructive hover:bg-destructive/90">
+            <AlertDialogAction 
+              onClick={handleDeleteBoard} 
+              className="bg-destructive hover:bg-destructive/90"
+              disabled={isSubmitting}
+            >
+              {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Supprimer
             </AlertDialogAction>
           </AlertDialogFooter>

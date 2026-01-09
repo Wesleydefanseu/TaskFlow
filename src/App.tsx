@@ -11,6 +11,7 @@ import { AIProvider } from "@/contexts/AIContext";
 import { ChatProvider } from "@/contexts/ChatContext";
 import { RealtimeProvider } from "@/contexts/RealtimeContext";
 import { AutomationProvider } from "@/contexts/AutomationContext";
+import { LanguageProvider } from "@/contexts/LanguageContext";
 import { ChatWindow } from "@/components/chat/ChatWindow";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
@@ -25,6 +26,8 @@ import Settings from "./pages/Settings";
 import Analytics from "./pages/Analytics";
 import Automation from "./pages/Automation";
 import Notifications from "./pages/Notifications";
+import Messages from "./pages/Messages";
+import Billing from "./pages/Billing";
 import FeaturesPage from "./pages/FeaturesPage";
 import PricingPage from "./pages/PricingPage";
 import AboutPage from "./pages/AboutPage";
@@ -35,50 +38,54 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
-      <UserProvider>
-        <WorkspaceProvider>
-          <AIProvider>
-            <RealtimeProvider>
-              <AutomationProvider>
-                <NotificationsProvider>
-                  <ChatProvider>
-                    <TooltipProvider>
-                      <Toaster />
-                      <Sonner />
-                      <BrowserRouter>
-                        <Routes>
-                          <Route path="/" element={<Index />} />
-                          <Route path="/features" element={<FeaturesPage />} />
-                          <Route path="/pricing" element={<PricingPage />} />
-                          <Route path="/about" element={<AboutPage />} />
-                          <Route path="/auth" element={<Auth />} />
-                          <Route path="/login" element={<Auth />} />
-                          <Route path="/register" element={<Auth />} />
-                          <Route path="/workspaces" element={<WorkspaceSelect />} />
-                          <Route path="/join/:code" element={<WorkspaceSelect />} />
-                          <Route path="/dashboard" element={<Dashboard />} />
-                          <Route path="/projects" element={<Projects />} />
-                          <Route path="/projects/:id" element={<Projects />} />
-                          <Route path="/boards" element={<Boards />} />
-                          <Route path="/planning" element={<ProjectPlanning />} />
-                          <Route path="/calendar" element={<CalendarPage />} />
-                          <Route path="/team" element={<Team />} />
-                          <Route path="/settings" element={<Settings />} />
-                          <Route path="/analytics" element={<Analytics />} />
-                          <Route path="/automation" element={<Automation />} />
-                          <Route path="/notifications" element={<Notifications />} />
-                          <Route path="*" element={<NotFound />} />
-                        </Routes>
-                        <ChatWindow />
-                      </BrowserRouter>
-                    </TooltipProvider>
-                  </ChatProvider>
-                </NotificationsProvider>
-              </AutomationProvider>
-            </RealtimeProvider>
-          </AIProvider>
-        </WorkspaceProvider>
-      </UserProvider>
+      <LanguageProvider>
+        <UserProvider>
+          <WorkspaceProvider>
+            <AIProvider>
+              <RealtimeProvider>
+                <AutomationProvider>
+                  <NotificationsProvider>
+                    <ChatProvider>
+                      <TooltipProvider>
+                        <Toaster />
+                        <Sonner />
+                        <BrowserRouter>
+                          <Routes>
+                            <Route path="/" element={<Index />} />
+                            <Route path="/features" element={<FeaturesPage />} />
+                            <Route path="/pricing" element={<PricingPage />} />
+                            <Route path="/about" element={<AboutPage />} />
+                            <Route path="/auth" element={<Auth />} />
+                            <Route path="/login" element={<Auth />} />
+                            <Route path="/register" element={<Auth />} />
+                            <Route path="/workspaces" element={<WorkspaceSelect />} />
+                            <Route path="/join/:code" element={<WorkspaceSelect />} />
+                            <Route path="/dashboard" element={<Dashboard />} />
+                            <Route path="/projects" element={<Projects />} />
+                            <Route path="/projects/:id" element={<Projects />} />
+                            <Route path="/boards" element={<Boards />} />
+                            <Route path="/planning" element={<ProjectPlanning />} />
+                            <Route path="/calendar" element={<CalendarPage />} />
+                            <Route path="/team" element={<Team />} />
+                            <Route path="/settings" element={<Settings />} />
+                            <Route path="/analytics" element={<Analytics />} />
+                            <Route path="/automation" element={<Automation />} />
+                            <Route path="/notifications" element={<Notifications />} />
+                            <Route path="/messages" element={<Messages />} />
+                            <Route path="/billing" element={<Billing />} />
+                            <Route path="*" element={<NotFound />} />
+                          </Routes>
+                          <ChatWindow />
+                        </BrowserRouter>
+                      </TooltipProvider>
+                    </ChatProvider>
+                  </NotificationsProvider>
+                </AutomationProvider>
+              </RealtimeProvider>
+            </AIProvider>
+          </WorkspaceProvider>
+        </UserProvider>
+      </LanguageProvider>
     </ThemeProvider>
   </QueryClientProvider>
 );

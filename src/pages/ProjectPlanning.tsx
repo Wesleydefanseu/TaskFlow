@@ -135,10 +135,8 @@ const demoPertNodes: PertNode[] = [
 ];
 
 const ProjectPlanning = () => {
-  const { currentWorkspace } = useWorkspace();
+  const { projects } = useWorkspace();
   const [selectedProject, setSelectedProject] = useState<string>('all');
-
-  const projects = currentWorkspace?.projects || [];
 
   return (
     <DashboardLayout title="Planification" subtitle="Diagrammes Gantt et PERT">
