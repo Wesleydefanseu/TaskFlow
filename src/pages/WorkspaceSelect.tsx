@@ -16,7 +16,8 @@ import {
   ArrowRight,
   Link as LinkIcon,
   LayoutGrid,
-  Loader2
+  Loader2,
+  LogOut
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
@@ -25,7 +26,7 @@ const WorkspaceSelect = () => {
   const navigate = useNavigate();
   const { code } = useParams();
   const { workspaces, currentWorkspace, setCurrentWorkspace, createWorkspace, joinWorkspaceByCode, members, projects, isLoading } = useWorkspace();
-  const { user, isAuthenticated, isLoading: userLoading } = useUser();
+  const { user, isAuthenticated, isLoading: userLoading, logout } = useUser();
   
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [joinDialogOpen, setJoinDialogOpen] = useState(false);
@@ -115,9 +116,19 @@ const WorkspaceSelect = () => {
     );
   }
 
+  const handleLogout = async () => {
+    await logout();
+    navigate('/auth');
+    toast.success('Déconnexion réussie');
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <div className="absolute top-4 right-4 flex items-center gap-4">
+        <Button variant="outline" size="sm" onClick={handleLogout}>
+          <LogOut className="w-4 h-4 mr-2" />
+          Se déconnecter
+        </Button>
         <ThemeToggle />
       </div>
 
