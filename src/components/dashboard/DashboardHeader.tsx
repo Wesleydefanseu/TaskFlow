@@ -1,9 +1,19 @@
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
-import { Plus, Search, ChevronDown } from 'lucide-react';
+import { Plus, Search, LogOut } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { NotificationCenter } from '@/components/notifications/NotificationCenter';
 import { useUser, roleLabels } from '@/contexts/UserContext';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface DashboardHeaderProps {
   title: string;
@@ -11,7 +21,14 @@ interface DashboardHeaderProps {
 }
 
 export function DashboardHeader({ title, subtitle }: DashboardHeaderProps) {
-  const { user } = useUser();
+  const { user, logout } = useUser();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/auth');
+    toast.success('Déconnexion réussie');
+  };
 
   return (
     <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-40">
@@ -44,17 +61,35 @@ export function DashboardHeader({ title, subtitle }: DashboardHeaderProps) {
           <ThemeToggle />
 
           {/* User Menu */}
-          <div className="flex items-center gap-2 pl-3 border-l border-border">
-            <Avatar className="h-8 w-8">
-              <AvatarImage src={user?.avatar} />
-              <AvatarFallback>{user?.name?.charAt(0) || 'U'}</AvatarFallback>
-            </Avatar>
-            <div className="hidden md:block">
-              <p className="text-sm font-medium">{user?.name || 'Utilisateur'}</p>
-              <p className="text-xs text-muted-foreground">{user?.role ? roleLabels[user.role] : ''}</p>
-            </div>
-            <ChevronDown className="w-4 h-4 text-muted-foreground" />
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <div className="flex items-center gap-2 pl-3 border-l border-border cursor-pointer hover:opacity-80">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={user?.avatar} />
+                  <AvatarFallback>{user?.name?.charAt(0) || 'U'}</AvatarFallback>
+                </Avatar>
+                <div className="hidden md:block">
+                  <p className="text-sm font-medium">{user?.name || 'Utilisateur'}</p>
+                  <p className="text-xs text-muted-foreground">{user?.role ? roleLabels[user.role] : ''}</p>
+                </div>
+              </div>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>Mon compte</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate('/settings')}>
+                Paramètres
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/workspaces')}>
+                Changer d'espace
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleLogout} className="text-destructive">
+                <LogOut className="w-4 h-4 mr-2" />
+                Se déconnecter
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </header>
