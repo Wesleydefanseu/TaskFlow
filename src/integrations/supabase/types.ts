@@ -280,6 +280,56 @@ export type Database = {
           },
         ]
       }
+      events: {
+        Row: {
+          color: string | null
+          created_at: string
+          created_by: string | null
+          date: string
+          description: string | null
+          duration: number | null
+          id: string
+          time: string | null
+          title: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          date: string
+          description?: string | null
+          duration?: number | null
+          id?: string
+          time?: string | null
+          title: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          date?: string
+          description?: string | null
+          duration?: number | null
+          id?: string
+          time?: string | null
+          title?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "events_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoices: {
         Row: {
           amount: number

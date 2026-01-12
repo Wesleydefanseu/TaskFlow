@@ -1,142 +1,147 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { GanttChart, GanttTask } from '@/components/charts/GanttChart';
 import { PertDiagram, PertNode } from '@/components/charts/PertDiagram';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { BarChart3, GitBranch, Calendar } from 'lucide-react';
-
-// Demo data for Gantt chart
-const demoGanttTasks: GanttTask[] = [
-  {
-    id: '1',
-    name: 'Analyse des besoins',
-    startDate: '2024-12-01',
-    endDate: '2024-12-10',
-    progress: 100,
-    color: 'bg-status-done',
-    assignee: 'Marie-Claire Fotso',
-  },
-  {
-    id: '2',
-    name: 'Design UI/UX',
-    startDate: '2024-12-08',
-    endDate: '2024-12-20',
-    progress: 85,
-    color: 'bg-status-progress',
-    dependencies: ['1'],
-    assignee: 'Sandrine Tchamba',
-  },
-  {
-    id: '3',
-    name: 'Développement Backend',
-    startDate: '2024-12-15',
-    endDate: '2024-12-30',
-    progress: 60,
-    color: 'bg-primary',
-    dependencies: ['1'],
-    assignee: 'Jean-Paul Mbarga',
-  },
-  {
-    id: '4',
-    name: 'Développement Frontend',
-    startDate: '2024-12-18',
-    endDate: '2025-01-05',
-    progress: 40,
-    color: 'bg-accent',
-    dependencies: ['2'],
-    assignee: 'Emmanuel Ngono',
-  },
-  {
-    id: '5',
-    name: 'Intégration API',
-    startDate: '2024-12-28',
-    endDate: '2025-01-08',
-    progress: 20,
-    color: 'bg-status-review',
-    dependencies: ['3', '4'],
-    assignee: 'Jean-Paul Mbarga',
-  },
-  {
-    id: '6',
-    name: 'Tests et QA',
-    startDate: '2025-01-05',
-    endDate: '2025-01-15',
-    progress: 0,
-    color: 'bg-muted-foreground',
-    dependencies: ['5'],
-    assignee: 'Patrick Nganou',
-  },
-  {
-    id: '7',
-    name: 'Déploiement',
-    startDate: '2025-01-14',
-    endDate: '2025-01-18',
-    progress: 0,
-    color: 'bg-destructive',
-    dependencies: ['6'],
-    assignee: 'Emmanuel Ngono',
-  },
-];
-
-// Demo data for PERT diagram
-const demoPertNodes: PertNode[] = [
-  {
-    id: '1',
-    name: 'Analyse des besoins',
-    duration: 10,
-    dependencies: [],
-    status: 'completed',
-  },
-  {
-    id: '2',
-    name: 'Design UI/UX',
-    duration: 13,
-    dependencies: ['1'],
-    status: 'in-progress',
-  },
-  {
-    id: '3',
-    name: 'Développement Backend',
-    duration: 16,
-    dependencies: ['1'],
-    status: 'in-progress',
-  },
-  {
-    id: '4',
-    name: 'Développement Frontend',
-    duration: 19,
-    dependencies: ['2'],
-    status: 'in-progress',
-  },
-  {
-    id: '5',
-    name: 'Intégration API',
-    duration: 12,
-    dependencies: ['3', '4'],
-    status: 'not-started',
-  },
-  {
-    id: '6',
-    name: 'Tests et QA',
-    duration: 11,
-    dependencies: ['5'],
-    status: 'not-started',
-  },
-  {
-    id: '7',
-    name: 'Déploiement',
-    duration: 5,
-    dependencies: ['6'],
-    status: 'not-started',
-  },
-];
+import { BarChart3, GitBranch, Calendar, Loader2 } from 'lucide-react';
 
 const ProjectPlanning = () => {
-  const { projects } = useWorkspace();
+  const { projects, boards } = useWorkspace();
   const [selectedProject, setSelectedProject] = useState<string>('all');
+  const [isLoading, setIsLoading] = useState(true);
+  const [ganttTasks, setGanttTasks] = useState<GanttTask[]>([]);
+  const [pertNodes, setPertNodes] = useState<PertNode[]>([]);
+  const [stats, setStats] = useState({
+    totalDuration: 0,
+    criticalTasks: 0,
+    avgProgress: 0,
+  });
+
+  useEffect(() => {
+    const fetchTasks = async () => {
+      setIsLoading(true);
+      try {
+        let boardIds: string[] = [];
+
+        if (selectedProject === 'all') {
+          boardIds = boards.map(b => b.id);
+        } else {
+          boardIds = boards.filter(b => b.project_id === selectedProject).map(b => b.id);
+        }
+
+        if (boardIds.length === 0) {
+          setGanttTasks([]);
+          setPertNodes([]);
+          setIsLoading(false);
+          return;
+        }
+
+        const { data: tasks, error } = await supabase
+          .from('tasks')
+          .select('*')
+          .in('board_id', boardIds)
+          .order('created_at', { ascending: true });
+
+        if (error) throw error;
+
+        // Transform to Gantt tasks
+        const now = new Date();
+        const ganttData: GanttTask[] = (tasks || []).map((task, index) => {
+          const startDate = new Date(task.created_at);
+          const endDate = task.due_date ? new Date(task.due_date) : new Date(startDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+          
+          const progress = task.status === 'done' ? 100 
+            : task.status === 'review' ? 75 
+            : task.status === 'in_progress' ? 50 
+            : 0;
+
+          const colorMap: Record<string, string> = {
+            done: 'bg-status-done',
+            review: 'bg-status-review',
+            in_progress: 'bg-status-progress',
+            todo: 'bg-muted-foreground',
+          };
+
+          return {
+            id: task.id,
+            name: task.title,
+            startDate: startDate.toISOString().split('T')[0],
+            endDate: endDate.toISOString().split('T')[0],
+            progress,
+            color: colorMap[task.status] || 'bg-primary',
+            dependencies: index > 0 ? [tasks[index - 1].id] : undefined,
+          };
+        });
+
+        // Transform to PERT nodes
+        const pertData: PertNode[] = (tasks || []).map((task, index) => {
+          const startDate = new Date(task.created_at);
+          const endDate = task.due_date ? new Date(task.due_date) : new Date(startDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+          const duration = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+
+          const statusMap: Record<string, 'completed' | 'in-progress' | 'not-started'> = {
+            done: 'completed',
+            review: 'in-progress',
+            in_progress: 'in-progress',
+            todo: 'not-started',
+          };
+
+          return {
+            id: task.id,
+            name: task.title,
+            duration: duration,
+            dependencies: index > 0 ? [tasks[index - 1].id] : [],
+            status: statusMap[task.status] || 'not-started',
+          };
+        });
+
+        setGanttTasks(ganttData);
+        setPertNodes(pertData);
+
+        // Calculate stats
+        if (ganttData.length > 0) {
+          const totalProgress = ganttData.reduce((sum, t) => sum + t.progress, 0);
+          const avgProgress = Math.round(totalProgress / ganttData.length);
+          const criticalTasks = ganttData.filter(t => t.progress < 50).length;
+          
+          // Calculate total duration
+          const dates = ganttData.flatMap(t => [new Date(t.startDate), new Date(t.endDate)]);
+          const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
+          const maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
+          const totalDuration = Math.ceil((maxDate.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24));
+
+          setStats({
+            totalDuration,
+            criticalTasks,
+            avgProgress,
+          });
+        } else {
+          setStats({ totalDuration: 0, criticalTasks: 0, avgProgress: 0 });
+        }
+
+      } catch (error) {
+        console.error('Error fetching tasks:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchTasks();
+  }, [selectedProject, boards]);
+
+  if (isLoading) {
+    return (
+      <DashboardLayout title="Planification" subtitle="Diagrammes Gantt et PERT">
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout title="Planification" subtitle="Diagrammes Gantt et PERT">
@@ -150,7 +155,10 @@ const ProjectPlanning = () => {
             {projects.map((project) => (
               <SelectItem key={project.id} value={project.id}>
                 <div className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full ${project.color}`} />
+                  <div 
+                    className="w-2 h-2 rounded-full" 
+                    style={{ backgroundColor: project.color || '#6366f1' }} 
+                  />
                   {project.name}
                 </div>
               </SelectItem>
@@ -167,18 +175,18 @@ const ProjectPlanning = () => {
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">48 jours</div>
-            <p className="text-xs text-muted-foreground">Du 01/12/2024 au 18/01/2025</p>
+            <div className="text-2xl font-bold">{stats.totalDuration} jours</div>
+            <p className="text-xs text-muted-foreground">Estimation basée sur les tâches</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tâches critiques</CardTitle>
+            <CardTitle className="text-sm font-medium">Tâches en retard</CardTitle>
             <GitBranch className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-destructive">4</div>
-            <p className="text-xs text-muted-foreground">Sur le chemin critique</p>
+            <div className="text-2xl font-bold text-destructive">{stats.criticalTasks}</div>
+            <p className="text-xs text-muted-foreground">Progression &lt; 50%</p>
           </CardContent>
         </Card>
         <Card>
@@ -187,7 +195,7 @@ const ProjectPlanning = () => {
             <BarChart3 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">44%</div>
+            <div className="text-2xl font-bold">{stats.avgProgress}%</div>
             <p className="text-xs text-muted-foreground">Du projet global</p>
           </CardContent>
         </Card>
@@ -214,7 +222,13 @@ const ProjectPlanning = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              <GanttChart tasks={demoGanttTasks} />
+              {ganttTasks.length > 0 ? (
+                <GanttChart tasks={ganttTasks} />
+              ) : (
+                <div className="flex items-center justify-center h-64 text-muted-foreground">
+                  Aucune tâche disponible
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -228,7 +242,13 @@ const ProjectPlanning = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              <PertDiagram nodes={demoPertNodes} />
+              {pertNodes.length > 0 ? (
+                <PertDiagram nodes={pertNodes} />
+              ) : (
+                <div className="flex items-center justify-center h-64 text-muted-foreground">
+                  Aucune tâche disponible
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
