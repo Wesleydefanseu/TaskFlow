@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { TeamMemberForm } from '@/components/forms/TeamMemberForm';
 import { usePermissions, UserRole, roleLabels } from '@/contexts/UserContext';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import { 
   Plus, 
   Mail, 
@@ -16,7 +19,8 @@ import {
   Clock,
   FolderKanban,
   Pencil,
-  Trash2
+  Trash2,
+  Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -39,6 +43,7 @@ import { Badge } from '@/components/ui/badge';
 
 interface TeamMember {
   id: string;
+  user_id: string;
   name: string;
   email: string;
   phone: string;
@@ -51,97 +56,84 @@ interface TeamMember {
   projects: number;
 }
 
-const initialMembers: TeamMember[] = [
-  {
-    id: '1',
-    name: 'Jean-Paul Mbarga',
-    email: 'jp.mbarga@taskflow.cm',
-    phone: '+237 6 77 12 34 56',
-    role: 'chef_projet',
-    department: 'Management',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200',
-    status: 'online',
-    tasksCompleted: 45,
-    tasksInProgress: 8,
-    projects: 4,
-  },
-  {
-    id: '2',
-    name: 'Marie-Claire Fotso',
-    email: 'mc.fotso@taskflow.cm',
-    phone: '+237 6 55 23 45 67',
-    role: 'developpeur',
-    department: 'Engineering',
-    avatar: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=200',
-    status: 'online',
-    tasksCompleted: 67,
-    tasksInProgress: 12,
-    projects: 5,
-  },
-  {
-    id: '3',
-    name: 'Patrick Nganou',
-    email: 'p.nganou@taskflow.cm',
-    phone: '+237 6 90 34 56 78',
-    role: 'developpeur',
-    department: 'Design',
-    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200',
-    status: 'away',
-    tasksCompleted: 52,
-    tasksInProgress: 6,
-    projects: 3,
-  },
-  {
-    id: '4',
-    name: 'Sandrine Tchamba',
-    email: 's.tchamba@taskflow.cm',
-    phone: '+237 6 70 45 67 89',
-    role: 'observateur',
-    department: 'Quality',
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200',
-    status: 'offline',
-    tasksCompleted: 38,
-    tasksInProgress: 4,
-    projects: 4,
-  },
-  {
-    id: '5',
-    name: 'Carine Atangana',
-    email: 'c.atangana@taskflow.cm',
-    phone: '+237 6 50 67 89 01',
-    role: 'admin',
-    department: 'Administration',
-    avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200',
-    status: 'online',
-    tasksCompleted: 89,
-    tasksInProgress: 15,
-    projects: 6,
-  },
-  {
-    id: '6',
-    name: 'Emmanuel Ngono',
-    email: 'e.ngono@taskflow.cm',
-    phone: '+237 6 99 56 78 90',
-    role: 'developpeur',
-    department: 'Engineering',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200',
-    status: 'online',
-    tasksCompleted: 34,
-    tasksInProgress: 3,
-    projects: 2,
-  },
-];
-
 const Team = () => {
   const permissions = usePermissions();
-  const [members, setMembers] = useState<TeamMember[]>(initialMembers);
+  const { currentWorkspace, members, removeMember } = useWorkspace();
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<TeamMember | undefined>();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [memberToDelete, setMemberToDelete] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const filteredMembers = members.filter(member =>
+  useEffect(() => {
+    const fetchTeamData = async () => {
+      if (!currentWorkspace) return;
+      
+      setIsLoading(true);
+      try {
+        // Transform workspace members to TeamMember format
+        const teamData: TeamMember[] = await Promise.all(
+          members.map(async (member) => {
+            // Get task counts for this member
+            const { data: assignedTasks } = await supabase
+              .from('task_assignees')
+              .select('task_id, tasks(status)')
+              .eq('user_id', member.user_id);
+            
+            const tasksCompleted = assignedTasks?.filter(
+              (t: any) => t.tasks?.status === 'done'
+            ).length || 0;
+            
+            const tasksInProgress = assignedTasks?.filter(
+              (t: any) => t.tasks?.status === 'in_progress'
+            ).length || 0;
+
+            // Get project count
+            const { data: projectMemberships } = await supabase
+              .from('project_members')
+              .select('project_id')
+              .eq('user_id', member.user_id);
+
+            const roleMap: Record<string, UserRole> = {
+              'owner': 'admin',
+              'admin': 'admin',
+              'manager': 'chef_projet',
+              'member': 'developpeur',
+              'viewer': 'observateur'
+            };
+
+            return {
+              id: member.id,
+              user_id: member.user_id,
+              name: member.profile?.full_name || member.profile?.email || 'Unknown',
+              email: member.profile?.email || '',
+              phone: '',
+              role: roleMap[member.role] || 'developpeur',
+              department: 'Non défini',
+              avatar: member.profile?.avatar_url || undefined,
+              status: 'online' as const,
+              tasksCompleted,
+              tasksInProgress,
+              projects: projectMemberships?.length || 0,
+            };
+          })
+        );
+        
+        setTeamMembers(teamData);
+      } catch (error) {
+        console.error('Error fetching team data:', error);
+        toast.error('Erreur lors du chargement de l\'équipe');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchTeamData();
+  }, [currentWorkspace, members]);
+
+  const filteredMembers = teamMembers.filter(member =>
     member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     member.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
     member.department.toLowerCase().includes(searchQuery.toLowerCase())
@@ -162,34 +154,57 @@ const Team = () => {
     setDeleteDialogOpen(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (memberToDelete) {
-      setMembers(members.filter(m => m.id !== memberToDelete));
+      const member = teamMembers.find(m => m.id === memberToDelete);
+      if (member) {
+        await removeMember(member.user_id);
+        setTeamMembers(prev => prev.filter(m => m.id !== memberToDelete));
+        toast.success('Membre supprimé avec succès');
+      }
       setMemberToDelete(null);
     }
     setDeleteDialogOpen(false);
   };
 
-  const handleSubmit = (data: Omit<TeamMember, 'id' | 'status' | 'tasksCompleted' | 'tasksInProgress' | 'projects' | 'phone'>) => {
+  const handleSubmit = async (data: any) => {
     if (editingMember) {
-      setMembers(members.map(m => 
-        m.id === editingMember.id 
-          ? { ...m, ...data }
-          : m
-      ));
-    } else {
-      const newMember: TeamMember = {
-        ...data,
-        id: Date.now().toString(),
-        phone: '',
-        status: 'offline',
-        tasksCompleted: 0,
-        tasksInProgress: 0,
-        projects: 0,
-      };
-      setMembers([...members, newMember]);
+      // Update existing member role
+      try {
+        const roleMap: Record<UserRole, string> = {
+          'admin': 'admin',
+          'chef_projet': 'manager',
+          'developpeur': 'member',
+          'observateur': 'viewer'
+        };
+        
+        await supabase
+          .from('workspace_members')
+          .update({ role: roleMap[data.role] || 'member' })
+          .eq('id', editingMember.id);
+        
+        setTeamMembers(prev => prev.map(m => 
+          m.id === editingMember.id 
+            ? { ...m, ...data }
+            : m
+        ));
+        toast.success('Membre mis à jour');
+      } catch (error) {
+        toast.error('Erreur lors de la mise à jour');
+      }
     }
+    setFormOpen(false);
   };
+
+  if (isLoading) {
+    return (
+      <DashboardLayout title="Équipe" subtitle="Gérez votre équipe et les permissions">
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout title="Équipe" subtitle="Gérez votre équipe et les permissions">
@@ -221,118 +236,130 @@ const Team = () => {
       </div>
 
       {/* Team Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {filteredMembers.map((member) => (
-          <div
-            key={member.id}
-            className="bg-card border border-border rounded-xl p-6 hover:shadow-elevated transition-all duration-300 group"
-          >
-            {/* Header */}
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-4">
-                <div className="relative">
-                  <Avatar className="h-14 w-14">
-                    <AvatarImage src={member.avatar} />
-                    <AvatarFallback className="text-lg">{member.name.charAt(0)}</AvatarFallback>
-                  </Avatar>
-                  <span className={cn(
-                    "absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 border-card",
-                    member.status === 'online' && "bg-status-done",
-                    member.status === 'away' && "bg-status-progress",
-                    member.status === 'offline' && "bg-muted"
-                  )} />
+      {filteredMembers.length === 0 ? (
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">Aucun membre dans l'équipe</p>
+          {permissions.canManageTeam && (
+            <Button variant="outline" className="mt-4" onClick={handleAddMember}>
+              <Plus className="w-4 h-4 mr-2" />
+              Inviter un membre
+            </Button>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          {filteredMembers.map((member) => (
+            <div
+              key={member.id}
+              className="bg-card border border-border rounded-xl p-6 hover:shadow-elevated transition-all duration-300 group"
+            >
+              {/* Header */}
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-4">
+                  <div className="relative">
+                    <Avatar className="h-14 w-14">
+                      <AvatarImage src={member.avatar} />
+                      <AvatarFallback className="text-lg">{member.name.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <span className={cn(
+                      "absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 border-card",
+                      member.status === 'online' && "bg-status-done",
+                      member.status === 'away' && "bg-status-progress",
+                      member.status === 'offline' && "bg-muted"
+                    )} />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">{member.name}</h3>
+                    <p className="text-sm text-muted-foreground">{roleLabels[member.role]}</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-semibold">{member.name}</h3>
-                  <p className="text-sm text-muted-foreground">{roleLabels[member.role]}</p>
-                </div>
+                {permissions.canManageTeam && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <MoreHorizontal className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleEditMember(member)}>
+                        <Pencil className="w-4 h-4 mr-2" />
+                        Modifier
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        onClick={() => handleDeleteMember(member.id)}
+                        className="text-destructive"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Supprimer
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               </div>
-              {permissions.canManageTeam && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <MoreHorizontal className="w-4 h-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => handleEditMember(member)}>
-                      <Pencil className="w-4 h-4 mr-2" />
-                      Modifier
-                    </DropdownMenuItem>
-                    <DropdownMenuItem 
-                      onClick={() => handleDeleteMember(member.id)}
-                      className="text-destructive"
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Supprimer
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-            </div>
 
-            {/* Department Badge */}
-            <div className="flex items-center gap-2 mb-4">
-              <Badge variant="secondary">{member.department}</Badge>
-              <Badge variant="outline" className="text-xs">
-                {roleLabels[member.role]}
-              </Badge>
-            </div>
-
-            {/* Contact Info */}
-            <div className="space-y-2 mb-4 text-sm">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Mail className="w-4 h-4" />
-                <span className="truncate">{member.email}</span>
+              {/* Department Badge */}
+              <div className="flex items-center gap-2 mb-4">
+                <Badge variant="secondary">{member.department}</Badge>
+                <Badge variant="outline" className="text-xs">
+                  {roleLabels[member.role]}
+                </Badge>
               </div>
-              {member.phone && (
+
+              {/* Contact Info */}
+              <div className="space-y-2 mb-4 text-sm">
                 <div className="flex items-center gap-2 text-muted-foreground">
-                  <Phone className="w-4 h-4" />
-                  <span>{member.phone}</span>
+                  <Mail className="w-4 h-4" />
+                  <span className="truncate">{member.email}</span>
                 </div>
-              )}
-            </div>
+                {member.phone && (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Phone className="w-4 h-4" />
+                    <span>{member.phone}</span>
+                  </div>
+                )}
+              </div>
 
-            {/* Stats */}
-            <div className="grid grid-cols-3 gap-4 pt-4 border-t border-border">
-              <div className="text-center">
-                <div className="flex items-center justify-center gap-1 text-status-done mb-1">
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span className="font-semibold">{member.tasksCompleted}</span>
+              {/* Stats */}
+              <div className="grid grid-cols-3 gap-4 pt-4 border-t border-border">
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-1 text-status-done mb-1">
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span className="font-semibold">{member.tasksCompleted}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Terminées</p>
                 </div>
-                <p className="text-xs text-muted-foreground">Terminées</p>
-              </div>
-              <div className="text-center">
-                <div className="flex items-center justify-center gap-1 text-status-progress mb-1">
-                  <Clock className="w-4 h-4" />
-                  <span className="font-semibold">{member.tasksInProgress}</span>
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-1 text-status-progress mb-1">
+                    <Clock className="w-4 h-4" />
+                    <span className="font-semibold">{member.tasksInProgress}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">En cours</p>
                 </div>
-                <p className="text-xs text-muted-foreground">En cours</p>
-              </div>
-              <div className="text-center">
-                <div className="flex items-center justify-center gap-1 text-primary mb-1">
-                  <FolderKanban className="w-4 h-4" />
-                  <span className="font-semibold">{member.projects}</span>
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-1 text-primary mb-1">
+                    <FolderKanban className="w-4 h-4" />
+                    <span className="font-semibold">{member.projects}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Projets</p>
                 </div>
-                <p className="text-xs text-muted-foreground">Projets</p>
               </div>
             </div>
-          </div>
-        ))}
+          ))}
 
-        {/* Add New Member Card */}
-        {permissions.canManageTeam && (
-          <button 
-            onClick={handleAddMember}
-            className="border-2 border-dashed border-border rounded-xl p-6 flex flex-col items-center justify-center gap-4 text-muted-foreground hover:border-primary hover:text-primary transition-colors min-h-[280px]"
-          >
-            <div className="w-14 h-14 rounded-full border-2 border-current flex items-center justify-center">
-              <Plus className="w-6 h-6" />
-            </div>
-            <span className="font-medium">Ajouter un membre</span>
-          </button>
-        )}
-      </div>
+          {/* Add New Member Card */}
+          {permissions.canManageTeam && (
+            <button 
+              onClick={handleAddMember}
+              className="border-2 border-dashed border-border rounded-xl p-6 flex flex-col items-center justify-center gap-4 text-muted-foreground hover:border-primary hover:text-primary transition-colors min-h-[280px]"
+            >
+              <div className="w-14 h-14 rounded-full border-2 border-current flex items-center justify-center">
+                <Plus className="w-6 h-6" />
+              </div>
+              <span className="font-medium">Ajouter un membre</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Team Member Form */}
       <TeamMemberForm

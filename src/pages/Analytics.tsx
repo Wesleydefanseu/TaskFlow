@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
-import { StatsCard } from '@/components/dashboard/StatsCard';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
+import { supabase } from '@/integrations/supabase/client';
 import { 
   TrendingUp, 
   Users, 
@@ -16,7 +17,8 @@ import {
   BarChart3,
   PieChart as PieChartIcon,
   Activity,
-  Zap
+  Zap,
+  Loader2
 } from 'lucide-react';
 import { 
   AreaChart, 
@@ -42,62 +44,134 @@ import {
 } from 'recharts';
 import { cn } from '@/lib/utils';
 
-const taskCompletionData = [
-  { name: 'Lun', completed: 12, created: 8, velocity: 4 },
-  { name: 'Mar', completed: 19, created: 15, velocity: 4 },
-  { name: 'Mer', completed: 15, created: 12, velocity: 3 },
-  { name: 'Jeu', completed: 22, created: 18, velocity: 4 },
-  { name: 'Ven', completed: 25, created: 20, velocity: 5 },
-  { name: 'Sam', completed: 8, created: 5, velocity: 3 },
-  { name: 'Dim', completed: 5, created: 3, velocity: 2 },
-];
-
-const monthlyTrend = [
-  { month: 'Jan', tasks: 120, hours: 480 },
-  { month: 'Fév', tasks: 145, hours: 520 },
-  { month: 'Mar', tasks: 132, hours: 490 },
-  { month: 'Avr', tasks: 168, hours: 560 },
-  { month: 'Mai', tasks: 189, hours: 620 },
-  { month: 'Juin', tasks: 210, hours: 680 },
-];
-
-const projectProgressData = [
-  { name: 'Site Web', progress: 75, budget: 85, onTime: 90 },
-  { name: 'App Mobile', progress: 45, budget: 60, onTime: 40 },
-  { name: 'Marketing', progress: 90, budget: 95, onTime: 100 },
-  { name: 'Design System', progress: 60, budget: 70, onTime: 80 },
-  { name: 'API', progress: 30, budget: 40, onTime: 50 },
-];
-
-const taskDistribution = [
-  { name: 'À faire', value: 25, color: 'hsl(var(--muted-foreground))' },
-  { name: 'En cours', value: 35, color: 'hsl(var(--status-progress))' },
-  { name: 'En revue', value: 15, color: 'hsl(var(--status-review))' },
-  { name: 'Terminé', value: 25, color: 'hsl(var(--status-done))' },
-];
-
-const teamPerformance = [
-  { name: 'Marie-Claire', tasks: 45, score: 92, avatar: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=100' },
-  { name: 'Jean-Paul', tasks: 38, score: 88, avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100' },
-  { name: 'Sandrine', tasks: 42, score: 95, avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100' },
-  { name: 'Emmanuel', tasks: 35, score: 85, avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100' },
-  { name: 'Patrick', tasks: 28, score: 78, avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100' },
-];
-
-const radarData = [
-  { subject: 'Vitesse', A: 85, fullMark: 100 },
-  { subject: 'Qualité', A: 92, fullMark: 100 },
-  { subject: 'Collaboration', A: 78, fullMark: 100 },
-  { subject: 'Innovation', A: 65, fullMark: 100 },
-  { subject: 'Efficacité', A: 88, fullMark: 100 },
-  { subject: 'Communication', A: 72, fullMark: 100 },
-];
-
 const Analytics = () => {
+  const { currentWorkspace, projects, members } = useWorkspace();
   const [timeRange, setTimeRange] = useState('7days');
+  const [isLoading, setIsLoading] = useState(true);
+  const [stats, setStats] = useState({
+    totalTasks: 0,
+    completedTasks: 0,
+    inProgressTasks: 0,
+    avgTimePerTask: 0,
+    completionRate: 0,
+  });
+  const [taskDistribution, setTaskDistribution] = useState<{ name: string; value: number; color: string }[]>([]);
+  const [projectProgressData, setProjectProgressData] = useState<{ name: string; progress: number }[]>([]);
+  const [teamPerformance, setTeamPerformance] = useState<{ name: string; tasks: number; avatar?: string }[]>([]);
+
+  useEffect(() => {
+    const fetchAnalytics = async () => {
+      if (!currentWorkspace) return;
+      
+      setIsLoading(true);
+      try {
+        // Fetch all tasks from workspace projects
+        const projectIds = projects.map(p => p.id);
+        
+        if (projectIds.length === 0) {
+          setIsLoading(false);
+          return;
+        }
+
+        // Get boards for projects
+        const { data: boards } = await supabase
+          .from('boards')
+          .select('id, project_id')
+          .in('project_id', projectIds);
+
+        const boardIds = boards?.map(b => b.id) || [];
+
+        if (boardIds.length === 0) {
+          setIsLoading(false);
+          return;
+        }
+
+        // Get all tasks
+        const { data: tasks } = await supabase
+          .from('tasks')
+          .select('*')
+          .in('board_id', boardIds);
+
+        const allTasks = tasks || [];
+        const completed = allTasks.filter(t => t.status === 'done').length;
+        const inProgress = allTasks.filter(t => t.status === 'in_progress').length;
+        const todo = allTasks.filter(t => t.status === 'todo').length;
+        const review = allTasks.filter(t => t.status === 'review').length;
+
+        setStats({
+          totalTasks: allTasks.length,
+          completedTasks: completed,
+          inProgressTasks: inProgress,
+          avgTimePerTask: allTasks.length > 0 ? 2.4 : 0,
+          completionRate: allTasks.length > 0 ? Math.round((completed / allTasks.length) * 100) : 0,
+        });
+
+        setTaskDistribution([
+          { name: 'À faire', value: todo, color: 'hsl(var(--muted-foreground))' },
+          { name: 'En cours', value: inProgress, color: 'hsl(var(--status-progress))' },
+          { name: 'En revue', value: review, color: 'hsl(var(--status-review))' },
+          { name: 'Terminé', value: completed, color: 'hsl(var(--status-done))' },
+        ]);
+
+        // Project progress
+        const projectProgress = await Promise.all(
+          projects.slice(0, 5).map(async (project) => {
+            const projectBoards = boards?.filter(b => b.project_id === project.id) || [];
+            const projectBoardIds = projectBoards.map(b => b.id);
+            const projectTasks = allTasks.filter(t => projectBoardIds.includes(t.board_id));
+            const projectCompleted = projectTasks.filter(t => t.status === 'done').length;
+            const progress = projectTasks.length > 0 
+              ? Math.round((projectCompleted / projectTasks.length) * 100) 
+              : 0;
+            
+            return { name: project.name, progress };
+          })
+        );
+        setProjectProgressData(projectProgress);
+
+        // Team performance
+        const teamStats = await Promise.all(
+          members.slice(0, 5).map(async (member) => {
+            const { data: assignees } = await supabase
+              .from('task_assignees')
+              .select('task_id, tasks(status)')
+              .eq('user_id', member.user_id);
+
+            const completedCount = assignees?.filter(
+              (a: any) => a.tasks?.status === 'done'
+            ).length || 0;
+
+            return {
+              name: member.profile?.full_name || 'Unknown',
+              tasks: completedCount,
+              avatar: member.profile?.avatar_url || undefined,
+            };
+          })
+        );
+        setTeamPerformance(teamStats.sort((a, b) => b.tasks - a.tasks));
+
+      } catch (error) {
+        console.error('Error fetching analytics:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAnalytics();
+  }, [currentWorkspace, projects, members]);
+
+  if (isLoading) {
+    return (
+      <DashboardLayout title="Analytiques" subtitle="Statistiques et performances">
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
-    <DashboardLayout title="Analytiques Avancés" subtitle="Statistiques et performances de l'équipe">
+    <DashboardLayout title="Analytiques" subtitle="Statistiques et performances de l'équipe">
       {/* Time Filter */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex bg-secondary rounded-lg p-1">
@@ -128,11 +202,10 @@ const Analytics = () => {
           <div className="flex items-start justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Tâches terminées</p>
-              <p className="text-3xl font-bold mt-1">1,284</p>
+              <p className="text-3xl font-bold mt-1">{stats.completedTasks}</p>
               <div className="flex items-center gap-1 mt-2 text-status-done">
                 <ArrowUpRight className="w-4 h-4" />
-                <span className="text-sm font-medium">+23%</span>
-                <span className="text-xs text-muted-foreground ml-1">vs période précédente</span>
+                <span className="text-sm font-medium">sur {stats.totalTasks}</span>
               </div>
             </div>
             <div className="p-3 rounded-xl bg-status-done/10">
@@ -144,12 +217,11 @@ const Analytics = () => {
         <Card className="p-6">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-sm text-muted-foreground">Temps moyen par tâche</p>
-              <p className="text-3xl font-bold mt-1">2.4h</p>
-              <div className="flex items-center gap-1 mt-2 text-status-done">
-                <ArrowDownRight className="w-4 h-4" />
-                <span className="text-sm font-medium">-12%</span>
-                <span className="text-xs text-muted-foreground ml-1">amélioration</span>
+              <p className="text-sm text-muted-foreground">En cours</p>
+              <p className="text-3xl font-bold mt-1">{stats.inProgressTasks}</p>
+              <div className="flex items-center gap-1 mt-2 text-status-progress">
+                <Activity className="w-4 h-4" />
+                <span className="text-sm font-medium">tâches actives</span>
               </div>
             </div>
             <div className="p-3 rounded-xl bg-accent/10">
@@ -162,11 +234,10 @@ const Analytics = () => {
           <div className="flex items-start justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Taux de complétion</p>
-              <p className="text-3xl font-bold mt-1">94%</p>
+              <p className="text-3xl font-bold mt-1">{stats.completionRate}%</p>
               <div className="flex items-center gap-1 mt-2 text-status-done">
                 <ArrowUpRight className="w-4 h-4" />
-                <span className="text-sm font-medium">+5%</span>
-                <span className="text-xs text-muted-foreground ml-1">vs objectif</span>
+                <span className="text-sm font-medium">progression</span>
               </div>
             </div>
             <div className="p-3 rounded-xl bg-primary/10">
@@ -178,11 +249,11 @@ const Analytics = () => {
         <Card className="p-6">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-sm text-muted-foreground">Vélocité d'équipe</p>
-              <p className="text-3xl font-bold mt-1">42</p>
+              <p className="text-sm text-muted-foreground">Membres actifs</p>
+              <p className="text-3xl font-bold mt-1">{members.length}</p>
               <div className="flex items-center gap-1 mt-2 text-status-progress">
-                <Activity className="w-4 h-4" />
-                <span className="text-sm font-medium">points/sprint</span>
+                <Users className="w-4 h-4" />
+                <span className="text-sm font-medium">dans l'équipe</span>
               </div>
             </div>
             <div className="p-3 rounded-xl bg-status-progress/10">
@@ -210,122 +281,80 @@ const Analytics = () => {
 
         <TabsContent value="overview" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Task Activity Chart */}
-            <Card className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h3 className="font-semibold">Activité des tâches</h3>
-                  <p className="text-sm text-muted-foreground">Tâches créées vs terminées</p>
-                </div>
-              </div>
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={taskCompletionData}>
-                  <defs>
-                    <linearGradient id="colorCompleted" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
-                    </linearGradient>
-                    <linearGradient id="colorCreated" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--accent))" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="hsl(var(--accent))" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                  <XAxis dataKey="name" className="text-muted-foreground" fontSize={12} />
-                  <YAxis className="text-muted-foreground" fontSize={12} />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'hsl(var(--card))', 
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '8px'
-                    }}
-                  />
-                  <Area type="monotone" dataKey="completed" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#colorCompleted)" />
-                  <Area type="monotone" dataKey="created" stroke="hsl(var(--accent))" fillOpacity={1} fill="url(#colorCreated)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </Card>
-
             {/* Task Distribution */}
             <Card className="p-6">
               <div className="mb-6">
                 <h3 className="font-semibold">Distribution des tâches</h3>
                 <p className="text-sm text-muted-foreground">Par statut</p>
               </div>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={taskDistribution}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={100}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {taskDistribution.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
+              {taskDistribution.some(t => t.value > 0) ? (
+                <>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie
+                        data={taskDistribution}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={100}
+                        paddingAngle={5}
+                        dataKey="value"
+                      >
+                        {taskDistribution.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="flex flex-wrap justify-center gap-4 mt-4">
+                    {taskDistribution.map((item, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                        <span className="text-sm text-muted-foreground">{item.name} ({item.value})</span>
+                      </div>
                     ))}
-                  </Pie>
-                  <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="flex flex-wrap justify-center gap-4 mt-4">
-                {taskDistribution.map((item, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                    <span className="text-sm text-muted-foreground">{item.name} ({item.value}%)</span>
                   </div>
-                ))}
+                </>
+              ) : (
+                <div className="flex items-center justify-center h-64 text-muted-foreground">
+                  Aucune donnée disponible
+                </div>
+              )}
+            </Card>
+
+            {/* Project Progress */}
+            <Card className="p-6">
+              <div className="mb-6">
+                <h3 className="font-semibold">Progression des projets</h3>
+                <p className="text-sm text-muted-foreground">Par projet</p>
               </div>
+              {projectProgressData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={projectProgressData} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" horizontal={false} />
+                    <XAxis type="number" domain={[0, 100]} className="text-muted-foreground" fontSize={12} />
+                    <YAxis type="category" dataKey="name" className="text-muted-foreground" fontSize={12} width={100} />
+                    <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
+                    <Bar dataKey="progress" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} name="Progression %" />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-64 text-muted-foreground">
+                  Aucun projet disponible
+                </div>
+              )}
             </Card>
           </div>
-
-          {/* Monthly Trend */}
-          <Card className="p-6">
-            <div className="mb-6">
-              <h3 className="font-semibold">Tendance mensuelle</h3>
-              <p className="text-sm text-muted-foreground">Évolution sur les 6 derniers mois</p>
-            </div>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={monthlyTrend}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                <XAxis dataKey="month" className="text-muted-foreground" fontSize={12} />
-                <YAxis yAxisId="left" className="text-muted-foreground" fontSize={12} />
-                <YAxis yAxisId="right" orientation="right" className="text-muted-foreground" fontSize={12} />
-                <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
-                <Legend />
-                <Line yAxisId="left" type="monotone" dataKey="tasks" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ fill: 'hsl(var(--primary))' }} name="Tâches" />
-                <Line yAxisId="right" type="monotone" dataKey="hours" stroke="hsl(var(--accent))" strokeWidth={2} dot={{ fill: 'hsl(var(--accent))' }} name="Heures" />
-              </LineChart>
-            </ResponsiveContainer>
-          </Card>
         </TabsContent>
 
         <TabsContent value="team" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Team Radar */}
-            <Card className="p-6">
-              <div className="mb-6">
-                <h3 className="font-semibold">Performance globale</h3>
-                <p className="text-sm text-muted-foreground">Indicateurs clés de l'équipe</p>
-              </div>
-              <ResponsiveContainer width="100%" height={300}>
-                <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
-                  <PolarGrid className="stroke-border" />
-                  <PolarAngleAxis dataKey="subject" className="text-muted-foreground" fontSize={12} />
-                  <PolarRadiusAxis angle={30} domain={[0, 100]} />
-                  <Radar name="Équipe" dataKey="A" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.3} />
-                </RadarChart>
-              </ResponsiveContainer>
-            </Card>
-
-            {/* Team Leaderboard */}
-            <Card className="p-6">
-              <div className="mb-6">
-                <h3 className="font-semibold">Classement de l'équipe</h3>
-                <p className="text-sm text-muted-foreground">Top performers ce mois</p>
-              </div>
+          <Card className="p-6">
+            <div className="mb-6">
+              <h3 className="font-semibold">Classement de l'équipe</h3>
+              <p className="text-sm text-muted-foreground">Par tâches terminées</p>
+            </div>
+            {teamPerformance.length > 0 ? (
               <div className="space-y-4">
                 {teamPerformance.map((member, i) => (
                   <div key={i} className="flex items-center gap-4">
@@ -338,40 +367,50 @@ const Analytics = () => {
                     )}>
                       {i + 1}
                     </span>
-                    <img src={member.avatar} alt={member.name} className="w-10 h-10 rounded-full object-cover" />
+                    {member.avatar ? (
+                      <img src={member.avatar} alt={member.name} className="w-10 h-10 rounded-full object-cover" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium">
+                        {member.name.charAt(0)}
+                      </div>
+                    )}
                     <div className="flex-1">
                       <p className="font-medium text-sm">{member.name}</p>
                       <p className="text-xs text-muted-foreground">{member.tasks} tâches terminées</p>
                     </div>
-                    <div className="text-right">
-                      <p className="font-bold text-lg">{member.score}</p>
-                      <p className="text-xs text-muted-foreground">score</p>
-                    </div>
                   </div>
                 ))}
               </div>
-            </Card>
-          </div>
+            ) : (
+              <div className="text-center text-muted-foreground py-8">
+                Aucune donnée d'équipe disponible
+              </div>
+            )}
+          </Card>
         </TabsContent>
 
         <TabsContent value="projects" className="space-y-6">
           <Card className="p-6">
             <div className="mb-6">
               <h3 className="font-semibold">Santé des projets</h3>
-              <p className="text-sm text-muted-foreground">Progression, budget et respect des délais</p>
+              <p className="text-sm text-muted-foreground">Progression globale</p>
             </div>
-            <ResponsiveContainer width="100%" height={400}>
-              <BarChart data={projectProgressData} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border" horizontal={false} />
-                <XAxis type="number" domain={[0, 100]} className="text-muted-foreground" fontSize={12} />
-                <YAxis type="category" dataKey="name" className="text-muted-foreground" fontSize={12} width={100} />
-                <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
-                <Legend />
-                <Bar dataKey="progress" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} name="Progression" />
-                <Bar dataKey="budget" fill="hsl(var(--accent))" radius={[0, 4, 4, 0]} name="Budget utilisé" />
-                <Bar dataKey="onTime" fill="hsl(var(--status-done))" radius={[0, 4, 4, 0]} name="Dans les temps" />
-              </BarChart>
-            </ResponsiveContainer>
+            {projectProgressData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={400}>
+                <BarChart data={projectProgressData} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" horizontal={false} />
+                  <XAxis type="number" domain={[0, 100]} className="text-muted-foreground" fontSize={12} />
+                  <YAxis type="category" dataKey="name" className="text-muted-foreground" fontSize={12} width={100} />
+                  <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
+                  <Legend />
+                  <Bar dataKey="progress" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} name="Progression" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-64 text-muted-foreground">
+                Aucun projet disponible
+              </div>
+            )}
           </Card>
         </TabsContent>
       </Tabs>

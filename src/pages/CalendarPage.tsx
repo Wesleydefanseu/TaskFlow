@@ -6,11 +6,15 @@ import {
   Plus,
   MoreHorizontal,
   Trash2,
-  Pencil
+  Pencil,
+  Loader2
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { EventForm, CalendarEvent } from '@/components/forms/EventForm';
+import { supabase } from '@/integrations/supabase/client';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
+import { toast } from 'sonner';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,25 +32,54 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-const initialEvents: CalendarEvent[] = [
-  { id: '1', title: 'Sprint Planning', time: '09:00', duration: 2, color: 'bg-primary', date: '2024-12-02', description: 'Planification du sprint 3' },
-  { id: '2', title: 'Design Review', time: '14:00', duration: 1, color: 'bg-accent', date: '2024-12-03', description: 'Revue des maquettes' },
-  { id: '3', title: 'Daily Standup', time: '10:00', duration: 0.5, color: 'bg-status-progress', date: '2024-12-04' },
-  { id: '4', title: 'Call Client - MTN', time: '15:00', duration: 1, color: 'bg-status-review', date: '2024-12-04', description: 'Appel avec l\'équipe MTN Cameroun' },
-  { id: '5', title: 'Code Review', time: '11:00', duration: 1.5, color: 'bg-status-done', date: '2024-12-05' },
-  { id: '6', title: 'Retrospective', time: '16:00', duration: 1, color: 'bg-primary', date: '2024-12-06' },
-];
-
 const daysOfWeek = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
 
 const CalendarPage = () => {
+  const { currentWorkspace } = useWorkspace();
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [eventFormOpen, setEventFormOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | undefined>();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [eventToDelete, setEventToDelete] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchEvents = async () => {
+      if (!currentWorkspace) return;
+      
+      setIsLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('events')
+          .select('*')
+          .eq('workspace_id', currentWorkspace.id)
+          .order('date', { ascending: true });
+
+        if (error) throw error;
+
+        const formattedEvents: CalendarEvent[] = (data || []).map(event => ({
+          id: event.id,
+          title: event.title,
+          date: event.date,
+          time: event.time?.substring(0, 5) || '09:00',
+          duration: Number(event.duration) || 1,
+          color: event.color || 'bg-primary',
+          description: event.description || undefined,
+        }));
+
+        setEvents(formattedEvents);
+      } catch (error) {
+        console.error('Error fetching events:', error);
+        toast.error('Erreur lors du chargement des événements');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchEvents();
+  }, [currentWorkspace]);
 
   const goToPreviousMonth = () => {
     setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
@@ -108,30 +141,97 @@ const CalendarPage = () => {
     setDeleteDialogOpen(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (eventToDelete) {
-      setEvents(events.filter(e => e.id !== eventToDelete));
+      try {
+        const { error } = await supabase
+          .from('events')
+          .delete()
+          .eq('id', eventToDelete);
+
+        if (error) throw error;
+
+        setEvents(events.filter(e => e.id !== eventToDelete));
+        toast.success('Événement supprimé');
+      } catch (error) {
+        console.error('Error deleting event:', error);
+        toast.error('Erreur lors de la suppression');
+      }
       setEventToDelete(null);
     }
     setDeleteDialogOpen(false);
   };
 
-  const handleEventSubmit = (eventData: Omit<CalendarEvent, 'id'>) => {
-    if (editingEvent) {
-      setEvents(events.map(e => 
-        e.id === editingEvent.id ? { ...e, ...eventData } : e
-      ));
-    } else {
-      const newEvent: CalendarEvent = {
-        ...eventData,
-        id: Date.now().toString(),
-      };
-      setEvents([...events, newEvent]);
+  const handleEventSubmit = async (eventData: Omit<CalendarEvent, 'id'>) => {
+    if (!currentWorkspace) return;
+
+    try {
+      if (editingEvent) {
+        const { error } = await supabase
+          .from('events')
+          .update({
+            title: eventData.title,
+            date: eventData.date,
+            time: eventData.time,
+            duration: eventData.duration,
+            color: eventData.color,
+            description: eventData.description,
+          })
+          .eq('id', editingEvent.id);
+
+        if (error) throw error;
+
+        setEvents(events.map(e => 
+          e.id === editingEvent.id ? { ...e, ...eventData } : e
+        ));
+        toast.success('Événement mis à jour');
+      } else {
+        const { data, error } = await supabase
+          .from('events')
+          .insert({
+            workspace_id: currentWorkspace.id,
+            title: eventData.title,
+            date: eventData.date,
+            time: eventData.time,
+            duration: eventData.duration,
+            color: eventData.color,
+            description: eventData.description,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        const newEvent: CalendarEvent = {
+          id: data.id,
+          title: data.title,
+          date: data.date,
+          time: data.time?.substring(0, 5) || '09:00',
+          duration: Number(data.duration) || 1,
+          color: data.color || 'bg-primary',
+          description: data.description || undefined,
+        };
+        setEvents([...events, newEvent]);
+        toast.success('Événement créé');
+      }
+    } catch (error) {
+      console.error('Error saving event:', error);
+      toast.error('Erreur lors de l\'enregistrement');
     }
   };
 
   const calendarDays = generateCalendarDays();
   const monthLabel = `${monthNames[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`;
+
+  if (isLoading) {
+    return (
+      <DashboardLayout title="Calendrier" subtitle={monthLabel}>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout title="Calendrier" subtitle={monthLabel}>
@@ -242,34 +342,40 @@ const CalendarPage = () => {
           </div>
 
           <div className="space-y-4">
-            {events.slice(0, 5).map((event) => (
-              <div key={event.id} className="flex items-start gap-3 group">
-                <div className={cn("w-1 h-12 rounded-full flex-shrink-0", event.color)} />
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate">{event.title}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {event.time} • {event.duration}h
-                  </p>
+            {events.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                Aucun événement
+              </p>
+            ) : (
+              events.slice(0, 5).map((event) => (
+                <div key={event.id} className="flex items-start gap-3 group">
+                  <div className={cn("w-1 h-12 rounded-full flex-shrink-0", event.color)} />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{event.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {event.time} • {event.duration}h
+                    </p>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <MoreHorizontal className="w-3 h-3" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleEditEvent(event)}>
+                        <Pencil className="w-4 h-4 mr-2" />
+                        Modifier
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleDeleteEvent(event.id)} className="text-destructive">
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Supprimer
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <MoreHorizontal className="w-3 h-3" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => handleEditEvent(event)}>
-                      <Pencil className="w-4 h-4 mr-2" />
-                      Modifier
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleDeleteEvent(event.id)} className="text-destructive">
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Supprimer
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            ))}
+              ))
+            )}
           </div>
 
           <Button variant="outline" className="w-full mt-4">
