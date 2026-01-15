@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { Bell, CheckCheck, Trash2, Filter, Search } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Bell, CheckCheck, Trash2, Filter, Search, Loader2 } from 'lucide-react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,14 +13,23 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useNotifications, Notification } from '@/contexts/NotificationsContext';
+import { useUser } from '@/contexts/UserContext';
 import { NotificationItem } from '@/components/notifications/NotificationItem';
-import { cn } from '@/lib/utils';
 
 export default function Notifications() {
-  const { notifications, unreadCount, markAllAsRead, clearAll } = useNotifications();
+  const navigate = useNavigate();
+  const { isAuthenticated, isLoading: userLoading } = useUser();
+  const { notifications, unreadCount, markAllAsRead, clearAll, isLoading } = useNotifications();
   const [filter, setFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState('all');
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!userLoading && !isAuthenticated) {
+      navigate('/auth');
+    }
+  }, [isAuthenticated, userLoading, navigate]);
 
   const filteredNotifications = notifications.filter((n) => {
     // Tab filter
@@ -65,6 +75,16 @@ export default function Notifications() {
     groups[groupKey].push(notification);
     return groups;
   }, {} as Record<string, Notification[]>);
+
+  if (userLoading || isLoading) {
+    return (
+      <DashboardLayout title="Notifications" subtitle="Gérez vos alertes et notifications">
+        <div className="flex items-center justify-center h-[calc(100vh-180px)]">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout title="Notifications" subtitle="Gérez vos alertes et notifications">

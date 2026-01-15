@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Task } from '@/components/dashboard/DraggableTaskCard';
 import { AssigneeSelector, TeamMember } from './AssigneeSelector';
-import { cameroonTeamMembers } from '@/data/cameroonTeam';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 
 interface TaskFormProps {
   open: boolean;
@@ -24,12 +24,15 @@ export function TaskForm({ open, onOpenChange, onSubmit, initialData, columnId, 
   const [priority, setPriority] = useState<Task['priority']>(initialData?.priority || 'medium');
   const [dueDate, setDueDate] = useState(initialData?.dueDate || '');
   const [selectedAssignees, setSelectedAssignees] = useState<TeamMember[]>([]);
+  
+  const { members } = useWorkspace();
 
-  const availableMembers: TeamMember[] = cameroonTeamMembers.map(m => ({
-    id: m.id,
-    name: m.name,
-    email: m.email,
-    avatar: m.avatar,
+  // Convert workspace members to TeamMember format
+  const availableMembers: TeamMember[] = members.map(m => ({
+    id: m.user_id,
+    name: m.profile?.full_name || m.profile?.email || 'Unknown',
+    email: m.profile?.email || '',
+    avatar: m.profile?.avatar_url || undefined,
     role: m.role,
   }));
 

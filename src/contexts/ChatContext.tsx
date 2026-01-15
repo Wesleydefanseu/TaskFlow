@@ -1,4 +1,7 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useUser } from '@/contexts/UserContext';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 
 export interface ChatMessage {
   id: string;
@@ -20,164 +23,296 @@ export interface ChatConversation {
   lastMessageTime?: Date;
   unreadCount: number;
   messages: ChatMessage[];
+  type: 'direct' | 'group' | 'project';
+  name?: string;
+  members?: Array<{
+    id: string;
+    full_name: string;
+    avatar_url?: string;
+  }>;
 }
 
 interface ChatContextType {
   conversations: ChatConversation[];
   activeConversationId: string | null;
   setActiveConversationId: (id: string | null) => void;
-  sendMessage: (conversationId: string, content: string) => void;
+  sendMessage: (conversationId: string, content: string) => Promise<void>;
   markAsRead: (conversationId: string) => void;
   totalUnread: number;
+  isLoading: boolean;
+  createChannel: (name: string, type: 'group' | 'project', memberIds: string[]) => Promise<void>;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
-// Membres camerounais pour les conversations
-const cameroonTeamMembers = [
-  { id: '1', name: 'Jean-Paul Mbarga', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100', status: 'online' as const },
-  { id: '2', name: 'Marie-Claire Fotso', avatar: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=100', status: 'online' as const },
-  { id: '3', name: 'Sandrine Tchamba', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100', status: 'away' as const },
-  { id: '4', name: 'Emmanuel Ngono', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100', status: 'online' as const },
-  { id: '5', name: 'Carine Atangana', avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100', status: 'offline' as const },
-];
-
-const initialConversations: ChatConversation[] = [
-  {
-    id: '1',
-    participantId: '1',
-    participantName: 'Jean-Paul Mbarga',
-    participantAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100',
-    participantStatus: 'online',
-    lastMessage: 'Super, on peut avancer sur le projet MTN!',
-    lastMessageTime: new Date(Date.now() - 1000 * 60 * 5),
-    unreadCount: 2,
-    messages: [
-      { id: '1', senderId: '1', senderName: 'Jean-Paul Mbarga', senderAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100', content: 'Bonjour! Comment avance le projet?', timestamp: new Date(Date.now() - 1000 * 60 * 30), isRead: true },
-      { id: '2', senderId: 'me', senderName: 'Moi', content: 'Ça avance bien, je termine la page dashboard', timestamp: new Date(Date.now() - 1000 * 60 * 25), isRead: true },
-      { id: '3', senderId: '1', senderName: 'Jean-Paul Mbarga', senderAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100', content: 'Parfait! Tu peux me montrer quand tu as fini?', timestamp: new Date(Date.now() - 1000 * 60 * 10), isRead: false },
-      { id: '4', senderId: '1', senderName: 'Jean-Paul Mbarga', senderAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100', content: 'Super, on peut avancer sur le projet MTN!', timestamp: new Date(Date.now() - 1000 * 60 * 5), isRead: false },
-    ],
-  },
-  {
-    id: '2',
-    participantId: '2',
-    participantName: 'Marie-Claire Fotso',
-    participantAvatar: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=100',
-    participantStatus: 'online',
-    lastMessage: 'J\'ai push les dernières modifications',
-    lastMessageTime: new Date(Date.now() - 1000 * 60 * 30),
-    unreadCount: 0,
-    messages: [
-      { id: '1', senderId: '2', senderName: 'Marie-Claire Fotso', senderAvatar: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=100', content: 'Hey, tu as vu le PR?', timestamp: new Date(Date.now() - 1000 * 60 * 60), isRead: true },
-      { id: '2', senderId: 'me', senderName: 'Moi', content: 'Oui je vais review ça maintenant', timestamp: new Date(Date.now() - 1000 * 60 * 45), isRead: true },
-      { id: '3', senderId: '2', senderName: 'Marie-Claire Fotso', senderAvatar: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=100', content: 'J\'ai push les dernières modifications', timestamp: new Date(Date.now() - 1000 * 60 * 30), isRead: true },
-    ],
-  },
-  {
-    id: '3',
-    participantId: '3',
-    participantName: 'Sandrine Tchamba',
-    participantAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100',
-    participantStatus: 'away',
-    lastMessage: 'Les maquettes sont prêtes',
-    lastMessageTime: new Date(Date.now() - 1000 * 60 * 60 * 2),
-    unreadCount: 1,
-    messages: [
-      { id: '1', senderId: '3', senderName: 'Sandrine Tchamba', senderAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100', content: 'Les maquettes sont prêtes', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2), isRead: false },
-    ],
-  },
-  {
-    id: '4',
-    participantId: '4',
-    participantName: 'Emmanuel Ngono',
-    participantAvatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100',
-    participantStatus: 'online',
-    unreadCount: 0,
-    messages: [],
-  },
-];
-
 export function ChatProvider({ children }: { children: ReactNode }) {
-  const [conversations, setConversations] = useState<ChatConversation[]>(initialConversations);
+  const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const { supabaseUser, user } = useUser();
+  const { currentWorkspace, members } = useWorkspace();
 
-  const sendMessage = (conversationId: string, content: string) => {
-    const newMessage: ChatMessage = {
-      id: Date.now().toString(),
-      senderId: 'me',
-      senderName: 'Moi',
-      content,
-      timestamp: new Date(),
-      isRead: true,
+  // Fetch channels and messages
+  const fetchConversations = useCallback(async () => {
+    if (!supabaseUser || !currentWorkspace) {
+      setConversations([]);
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      // Fetch channels the user is a member of
+      const { data: memberChannels, error: memberError } = await supabase
+        .from('chat_channel_members')
+        .select(`
+          channel_id,
+          last_read_at,
+          chat_channels (
+            id,
+            name,
+            type,
+            description,
+            workspace_id
+          )
+        `)
+        .eq('user_id', supabaseUser.id);
+
+      if (memberError) throw memberError;
+
+      const channelIds = memberChannels?.map(mc => mc.channel_id) || [];
+
+      if (channelIds.length === 0) {
+        setConversations([]);
+        setIsLoading(false);
+        return;
+      }
+
+      // Fetch messages for each channel
+      const conversationsData: ChatConversation[] = [];
+
+      for (const mc of memberChannels || []) {
+        const channel = mc.chat_channels as any;
+        if (!channel || channel.workspace_id !== currentWorkspace.id) continue;
+
+        // Get channel members with profiles
+        const { data: channelMembers } = await supabase
+          .from('chat_channel_members')
+          .select('user_id')
+          .eq('channel_id', channel.id);
+
+        const memberUserIds = channelMembers?.map(cm => cm.user_id) || [];
+        const { data: memberProfiles } = await supabase
+          .from('profiles')
+          .select('id, full_name, avatar_url')
+          .in('id', memberUserIds);
+
+        // Get messages
+        const { data: messages } = await supabase
+          .from('chat_messages')
+          .select('*')
+          .eq('channel_id', channel.id)
+          .order('created_at', { ascending: true });
+
+        // Get sender profiles for messages
+        const senderIds = [...new Set(messages?.map(m => m.user_id) || [])];
+        const { data: senderProfiles } = await supabase
+          .from('profiles')
+          .select('id, full_name, avatar_url')
+          .in('id', senderIds);
+
+        const lastReadAt = mc.last_read_at ? new Date(mc.last_read_at) : new Date(0);
+        const unreadCount = messages?.filter(m => 
+          new Date(m.created_at) > lastReadAt && m.user_id !== supabaseUser.id
+        ).length || 0;
+
+        const formattedMessages: ChatMessage[] = (messages || []).map(m => {
+          const sender = senderProfiles?.find(p => p.id === m.user_id);
+          return {
+            id: m.id,
+            senderId: m.user_id,
+            senderName: sender?.full_name || 'Unknown',
+            senderAvatar: sender?.avatar_url || undefined,
+            content: m.content,
+            timestamp: new Date(m.created_at),
+            isRead: new Date(m.created_at) <= lastReadAt || m.user_id === supabaseUser.id,
+          };
+        });
+
+        const lastMessage = messages?.[messages.length - 1];
+        
+        // For direct messages, get the other participant
+        const otherParticipant = channel.type === 'direct' 
+          ? memberProfiles?.find(p => p.id !== supabaseUser.id)
+          : null;
+
+        conversationsData.push({
+          id: channel.id,
+          participantId: otherParticipant?.id || channel.id,
+          participantName: otherParticipant?.full_name || channel.name || 'Conversation',
+          participantAvatar: otherParticipant?.avatar_url || undefined,
+          participantStatus: 'online', // Would need presence system for real status
+          lastMessage: lastMessage?.content,
+          lastMessageTime: lastMessage ? new Date(lastMessage.created_at) : undefined,
+          unreadCount,
+          messages: formattedMessages,
+          type: channel.type as 'direct' | 'group' | 'project',
+          name: channel.name,
+          members: memberProfiles?.map(p => ({
+            id: p.id,
+            full_name: p.full_name || 'Unknown',
+            avatar_url: p.avatar_url || undefined,
+          })),
+        });
+      }
+
+      // Sort by last message time
+      conversationsData.sort((a, b) => {
+        if (!a.lastMessageTime) return 1;
+        if (!b.lastMessageTime) return -1;
+        return b.lastMessageTime.getTime() - a.lastMessageTime.getTime();
+      });
+
+      setConversations(conversationsData);
+    } catch (error) {
+      console.error('Error fetching conversations:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [supabaseUser, currentWorkspace]);
+
+  useEffect(() => {
+    fetchConversations();
+  }, [fetchConversations]);
+
+  // Subscribe to new messages
+  useEffect(() => {
+    if (!supabaseUser || !currentWorkspace) return;
+
+    const channel = supabase
+      .channel('chat-messages-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'chat_messages',
+        },
+        async (payload) => {
+          const newMsg = payload.new as any;
+          
+          // Fetch sender profile
+          const { data: sender } = await supabase
+            .from('profiles')
+            .select('id, full_name, avatar_url')
+            .eq('id', newMsg.user_id)
+            .single();
+
+          const chatMessage: ChatMessage = {
+            id: newMsg.id,
+            senderId: newMsg.user_id,
+            senderName: sender?.full_name || 'Unknown',
+            senderAvatar: sender?.avatar_url || undefined,
+            content: newMsg.content,
+            timestamp: new Date(newMsg.created_at),
+            isRead: newMsg.user_id === supabaseUser.id || activeConversationId === newMsg.channel_id,
+          };
+
+          setConversations(prev => prev.map(conv => {
+            if (conv.id === newMsg.channel_id) {
+              return {
+                ...conv,
+                messages: [...conv.messages, chatMessage],
+                lastMessage: newMsg.content,
+                lastMessageTime: new Date(newMsg.created_at),
+                unreadCount: newMsg.user_id !== supabaseUser.id && activeConversationId !== newMsg.channel_id
+                  ? conv.unreadCount + 1 
+                  : conv.unreadCount,
+              };
+            }
+            return conv;
+          }));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
     };
+  }, [supabaseUser, currentWorkspace, activeConversationId]);
 
-    setConversations(prev => prev.map(conv => {
-      if (conv.id === conversationId) {
-        return {
-          ...conv,
-          messages: [...conv.messages, newMessage],
-          lastMessage: content,
-          lastMessageTime: new Date(),
-        };
-      }
-      return conv;
-    }));
+  const sendMessage = async (conversationId: string, content: string) => {
+    if (!supabaseUser || !content.trim()) return;
 
-    // Simuler une réponse automatique
-    setTimeout(() => {
-      const conv = conversations.find(c => c.id === conversationId);
-      if (conv) {
-        const autoReply: ChatMessage = {
-          id: (Date.now() + 1).toString(),
-          senderId: conv.participantId,
-          senderName: conv.participantName,
-          senderAvatar: conv.participantAvatar,
-          content: getAutoReply(),
-          timestamp: new Date(),
-          isRead: activeConversationId === conversationId,
-        };
-
-        setConversations(prev => prev.map(c => {
-          if (c.id === conversationId) {
-            return {
-              ...c,
-              messages: [...c.messages, autoReply],
-              lastMessage: autoReply.content,
-              lastMessageTime: new Date(),
-              unreadCount: activeConversationId === conversationId ? c.unreadCount : c.unreadCount + 1,
-            };
-          }
-          return c;
-        }));
-      }
-    }, 2000);
+    try {
+      await supabase
+        .from('chat_messages')
+        .insert({
+          channel_id: conversationId,
+          user_id: supabaseUser.id,
+          content: content.trim(),
+        });
+      // Realtime will handle adding to state
+    } catch (error) {
+      console.error('Error sending message:', error);
+    }
   };
 
-  const getAutoReply = () => {
-    const replies = [
-      'D\'accord, je vais vérifier ça!',
-      'Merci pour l\'info!',
-      'Super, on continue comme ça!',
-      'Je te tiens au courant.',
-      'Parfait, c\'est noté!',
-      'OK je m\'en occupe.',
-      'Bien reçu!',
-    ];
-    return replies[Math.floor(Math.random() * replies.length)];
+  const markAsRead = async (conversationId: string) => {
+    if (!supabaseUser) return;
+
+    try {
+      await supabase
+        .from('chat_channel_members')
+        .update({ last_read_at: new Date().toISOString() })
+        .eq('channel_id', conversationId)
+        .eq('user_id', supabaseUser.id);
+
+      setConversations(prev => prev.map(conv => {
+        if (conv.id === conversationId) {
+          return {
+            ...conv,
+            unreadCount: 0,
+            messages: conv.messages.map(msg => ({ ...msg, isRead: true })),
+          };
+        }
+        return conv;
+      }));
+    } catch (error) {
+      console.error('Error marking as read:', error);
+    }
   };
 
-  const markAsRead = (conversationId: string) => {
-    setConversations(prev => prev.map(conv => {
-      if (conv.id === conversationId) {
-        return {
-          ...conv,
-          unreadCount: 0,
-          messages: conv.messages.map(msg => ({ ...msg, isRead: true })),
-        };
-      }
-      return conv;
-    }));
+  const createChannel = async (name: string, type: 'group' | 'project', memberIds: string[]) => {
+    if (!supabaseUser || !currentWorkspace) return;
+
+    try {
+      // Create channel
+      const { data: channel, error: channelError } = await supabase
+        .from('chat_channels')
+        .insert({
+          name,
+          type,
+          workspace_id: currentWorkspace.id,
+          created_by: supabaseUser.id,
+        })
+        .select()
+        .single();
+
+      if (channelError) throw channelError;
+
+      // Add members including creator
+      const allMemberIds = [...new Set([supabaseUser.id, ...memberIds])];
+      await supabase
+        .from('chat_channel_members')
+        .insert(allMemberIds.map(userId => ({
+          channel_id: channel.id,
+          user_id: userId,
+        })));
+
+      await fetchConversations();
+    } catch (error) {
+      console.error('Error creating channel:', error);
+    }
   };
 
   const totalUnread = conversations.reduce((sum, conv) => sum + conv.unreadCount, 0);
@@ -190,6 +325,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       sendMessage,
       markAsRead,
       totalUnread,
+      isLoading,
+      createChannel,
     }}>
       {children}
     </ChatContext.Provider>

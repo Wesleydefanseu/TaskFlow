@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,7 +10,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { supabase } from '@/integrations/supabase/client';
+import { useChat } from '@/contexts/ChatContext';
+import { useUser } from '@/contexts/UserContext';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { toast } from 'sonner';
 import { 
   Search, 
@@ -21,252 +24,126 @@ import {
   MoreVertical,
   Phone,
   Video,
-  Smile
+  Smile,
+  Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, formatDistanceToNow } from 'date-fns';
 import { fr, enUS } from 'date-fns/locale';
 
-interface Message {
-  id: string;
-  content: string;
-  user_id: string;
-  created_at: string;
-  sender?: {
-    full_name: string;
-    avatar_url?: string;
-  };
-}
-
-interface Channel {
-  id: string;
-  name: string | null;
-  type: 'direct' | 'group' | 'project';
-  description?: string;
-  last_message?: string;
-  last_message_time?: string;
-  unread_count: number;
-  members?: Array<{
-    id: string;
-    full_name: string;
-    avatar_url?: string;
-    status?: 'online' | 'away' | 'offline';
-  }>;
-}
-
-// Cameroon team members for demo
-const cameroonTeam = [
-  { id: '1', full_name: 'Jean-Paul Mbarga', avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100', status: 'online' as const },
-  { id: '2', full_name: 'Marie-Claire Fotso', avatar_url: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=100', status: 'online' as const },
-  { id: '3', full_name: 'Sandrine Tchamba', avatar_url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100', status: 'away' as const },
-  { id: '4', full_name: 'Emmanuel Ngono', avatar_url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100', status: 'online' as const },
-  { id: '5', full_name: 'Carine Atangana', avatar_url: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100', status: 'offline' as const },
-  { id: '6', full_name: 'Patrick Nganou', avatar_url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100', status: 'online' as const },
-];
-
-// Demo channels
-const demoChannels: Channel[] = [
-  {
-    id: '1',
-    name: null,
-    type: 'direct',
-    last_message: 'Super, on peut avancer sur le projet MTN!',
-    last_message_time: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
-    unread_count: 2,
-    members: [cameroonTeam[0]],
-  },
-  {
-    id: '2',
-    name: null,
-    type: 'direct',
-    last_message: "J'ai push les dernières modifications",
-    last_message_time: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-    unread_count: 0,
-    members: [cameroonTeam[1]],
-  },
-  {
-    id: '3',
-    name: 'Équipe Développement',
-    type: 'group',
-    description: 'Canal pour l\'équipe de développement',
-    last_message: 'La review du PR est prête',
-    last_message_time: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
-    unread_count: 5,
-    members: [cameroonTeam[0], cameroonTeam[1], cameroonTeam[3]],
-  },
-  {
-    id: '4',
-    name: 'Projet MTN Mobile Money',
-    type: 'project',
-    description: 'Discussions liées au projet MTN',
-    last_message: 'Les specs sont validées',
-    last_message_time: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
-    unread_count: 1,
-    members: [cameroonTeam[0], cameroonTeam[2], cameroonTeam[4], cameroonTeam[5]],
-  },
-  {
-    id: '5',
-    name: null,
-    type: 'direct',
-    last_message: 'Les maquettes sont prêtes',
-    last_message_time: new Date(Date.now() - 1000 * 60 * 180).toISOString(),
-    unread_count: 1,
-    members: [cameroonTeam[2]],
-  },
-];
-
-// Demo messages
-const demoMessages: Record<string, Message[]> = {
-  '1': [
-    { id: '1', content: 'Bonjour! Comment avance le projet?', user_id: '1', created_at: new Date(Date.now() - 1000 * 60 * 30).toISOString(), sender: cameroonTeam[0] },
-    { id: '2', content: 'Ça avance bien, je termine la page dashboard', user_id: 'me', created_at: new Date(Date.now() - 1000 * 60 * 25).toISOString() },
-    { id: '3', content: 'Parfait! Tu peux me montrer quand tu as fini?', user_id: '1', created_at: new Date(Date.now() - 1000 * 60 * 10).toISOString(), sender: cameroonTeam[0] },
-    { id: '4', content: 'Super, on peut avancer sur le projet MTN!', user_id: '1', created_at: new Date(Date.now() - 1000 * 60 * 5).toISOString(), sender: cameroonTeam[0] },
-  ],
-  '2': [
-    { id: '1', content: 'Hey, tu as vu le PR?', user_id: '2', created_at: new Date(Date.now() - 1000 * 60 * 60).toISOString(), sender: cameroonTeam[1] },
-    { id: '2', content: 'Oui je vais review ça maintenant', user_id: 'me', created_at: new Date(Date.now() - 1000 * 60 * 45).toISOString() },
-    { id: '3', content: "J'ai push les dernières modifications", user_id: '2', created_at: new Date(Date.now() - 1000 * 60 * 30).toISOString(), sender: cameroonTeam[1] },
-  ],
-  '3': [
-    { id: '1', content: 'Bienvenue dans le canal de l\'équipe dev!', user_id: '1', created_at: new Date(Date.now() - 1000 * 60 * 120).toISOString(), sender: cameroonTeam[0] },
-    { id: '2', content: 'Merci! Content d\'être là', user_id: '4', created_at: new Date(Date.now() - 1000 * 60 * 90).toISOString(), sender: cameroonTeam[3] },
-    { id: '3', content: 'La review du PR est prête', user_id: '2', created_at: new Date(Date.now() - 1000 * 60 * 60).toISOString(), sender: cameroonTeam[1] },
-  ],
-};
-
 const Messages = () => {
   const { t, language } = useLanguage();
-  const [channels, setChannels] = useState<Channel[]>(demoChannels);
-  const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const navigate = useNavigate();
+  const { isAuthenticated, isLoading: userLoading, supabaseUser } = useUser();
+  const { members } = useWorkspace();
+  const { 
+    conversations, 
+    activeConversationId, 
+    setActiveConversationId, 
+    sendMessage, 
+    markAsRead,
+    createChannel,
+    isLoading: chatLoading 
+  } = useChat();
+  
   const [newMessage, setNewMessage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [showNewGroup, setShowNewGroup] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
+  const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const dateLocale = language === 'fr' ? fr : enUS;
 
+  // Redirect if not authenticated
   useEffect(() => {
-    if (selectedChannel) {
-      setMessages(demoMessages[selectedChannel.id] || []);
+    if (!userLoading && !isAuthenticated) {
+      navigate('/auth');
     }
-  }, [selectedChannel]);
+  }, [isAuthenticated, userLoading, navigate]);
+
+  const selectedChannel = conversations.find(c => c.id === activeConversationId);
+
+  useEffect(() => {
+    if (activeConversationId) {
+      markAsRead(activeConversationId);
+    }
+  }, [activeConversationId, markAsRead]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [selectedChannel?.messages]);
 
-  const handleSendMessage = () => {
-    if (!newMessage.trim() || !selectedChannel) return;
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !activeConversationId || isSending) return;
 
-    const message: Message = {
-      id: Date.now().toString(),
-      content: newMessage,
-      user_id: 'me',
-      created_at: new Date().toISOString(),
-    };
-
-    setMessages(prev => [...prev, message]);
-    setNewMessage('');
-
-    // Update channel last message
-    setChannels(prev => prev.map(ch => 
-      ch.id === selectedChannel.id 
-        ? { ...ch, last_message: newMessage, last_message_time: message.created_at }
-        : ch
-    ));
-
-    // Simulate response after 2 seconds
-    setTimeout(() => {
-      const member = selectedChannel.members?.[0];
-      if (member) {
-        const response: Message = {
-          id: (Date.now() + 1).toString(),
-          content: getAutoReply(),
-          user_id: member.id,
-          created_at: new Date().toISOString(),
-          sender: member,
-        };
-        setMessages(prev => [...prev, response]);
-      }
-    }, 2000);
+    setIsSending(true);
+    try {
+      await sendMessage(activeConversationId, newMessage);
+      setNewMessage('');
+    } catch (error) {
+      toast.error(language === 'fr' ? 'Erreur lors de l\'envoi' : 'Error sending message');
+    } finally {
+      setIsSending(false);
+    }
   };
 
-  const getAutoReply = () => {
-    const replies = language === 'fr' 
-      ? [
-          'D\'accord, je vais vérifier ça!',
-          'Merci pour l\'info!',
-          'Super, on continue comme ça!',
-          'Je te tiens au courant.',
-          'Parfait, c\'est noté!',
-          'OK je m\'en occupe.',
-          'Bien reçu!',
-        ]
-      : [
-          "OK, I'll check that!",
-          'Thanks for the info!',
-          "Great, let's keep going!",
-          "I'll keep you posted.",
-          "Perfect, noted!",
-          "OK I'll take care of it.",
-          'Got it!',
-        ];
-    return replies[Math.floor(Math.random() * replies.length)];
-  };
-
-  const handleCreateGroup = () => {
+  const handleCreateGroup = async () => {
     if (!newGroupName.trim() || selectedMembers.length === 0) {
       toast.error(language === 'fr' ? 'Veuillez entrer un nom et sélectionner des membres' : 'Please enter a name and select members');
       return;
     }
 
-    const newChannel: Channel = {
-      id: Date.now().toString(),
-      name: newGroupName,
-      type: 'group',
-      unread_count: 0,
-      members: cameroonTeam.filter(m => selectedMembers.includes(m.id)),
-    };
-
-    setChannels(prev => [newChannel, ...prev]);
-    setShowNewGroup(false);
-    setNewGroupName('');
-    setSelectedMembers([]);
-    toast.success(language === 'fr' ? 'Groupe créé avec succès' : 'Group created successfully');
+    try {
+      await createChannel(newGroupName, 'group', selectedMembers);
+      setShowNewGroup(false);
+      setNewGroupName('');
+      setSelectedMembers([]);
+      toast.success(language === 'fr' ? 'Groupe créé avec succès' : 'Group created successfully');
+    } catch (error) {
+      toast.error(language === 'fr' ? 'Erreur lors de la création' : 'Error creating group');
+    }
   };
 
-  const getChannelName = (channel: Channel) => {
+  const getChannelName = (channel: typeof conversations[0]) => {
     if (channel.name) return channel.name;
-    if (channel.type === 'direct' && channel.members?.[0]) {
-      return channel.members[0].full_name;
+    if (channel.type === 'direct') {
+      return channel.participantName;
     }
     return t.messages.noMessages;
   };
 
-  const getChannelAvatar = (channel: Channel) => {
-    if (channel.type === 'direct' && channel.members?.[0]) {
-      return channel.members[0].avatar_url;
+  const getChannelAvatar = (channel: typeof conversations[0]) => {
+    if (channel.type === 'direct') {
+      return channel.participantAvatar;
     }
     return null;
   };
 
-  const getChannelStatus = (channel: Channel) => {
-    if (channel.type === 'direct' && channel.members?.[0]) {
-      return channel.members[0].status;
-    }
-    return null;
-  };
-
-  const filteredChannels = channels.filter(ch => {
+  const filteredChannels = conversations.filter(ch => {
     const name = getChannelName(ch).toLowerCase();
     return name.includes(searchQuery.toLowerCase());
   });
 
   const directChannels = filteredChannels.filter(ch => ch.type === 'direct');
   const groupChannels = filteredChannels.filter(ch => ch.type === 'group' || ch.type === 'project');
+
+  // Get available members for group creation
+  const availableMembers = members.map(m => ({
+    id: m.user_id,
+    full_name: m.profile?.full_name || m.profile?.email || 'Unknown',
+    avatar_url: m.profile?.avatar_url,
+  })).filter(m => m.id !== supabaseUser?.id);
+
+  if (userLoading || chatLoading) {
+    return (
+      <DashboardLayout title={t.messages.title} subtitle="">
+        <div className="flex items-center justify-center h-[calc(100vh-180px)]">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout title={t.messages.title} subtitle="">
@@ -307,31 +184,37 @@ const Messages = () => {
                   <div className="space-y-2">
                     <Label>{t.messages.selectMembers}</Label>
                     <div className="space-y-2 max-h-48 overflow-y-auto">
-                      {cameroonTeam.map(member => (
-                        <div key={member.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-secondary">
-                          <Checkbox
-                            id={member.id}
-                            checked={selectedMembers.includes(member.id)}
-                            onCheckedChange={(checked) => {
-                              if (checked) {
-                                setSelectedMembers(prev => [...prev, member.id]);
-                              } else {
-                                setSelectedMembers(prev => prev.filter(id => id !== member.id));
-                              }
-                            }}
-                          />
-                          <Avatar className="h-8 w-8">
-                            <AvatarImage src={member.avatar_url} />
-                            <AvatarFallback>{member.full_name.charAt(0)}</AvatarFallback>
-                          </Avatar>
-                          <Label htmlFor={member.id} className="cursor-pointer flex-1">
-                            {member.full_name}
-                          </Label>
-                        </div>
-                      ))}
+                      {availableMembers.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-4">
+                          {language === 'fr' ? 'Aucun membre disponible' : 'No members available'}
+                        </p>
+                      ) : (
+                        availableMembers.map(member => (
+                          <div key={member.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-secondary">
+                            <Checkbox
+                              id={member.id}
+                              checked={selectedMembers.includes(member.id)}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedMembers(prev => [...prev, member.id]);
+                                } else {
+                                  setSelectedMembers(prev => prev.filter(id => id !== member.id));
+                                }
+                              }}
+                            />
+                            <Avatar className="h-8 w-8">
+                              <AvatarImage src={member.avatar_url || ''} />
+                              <AvatarFallback>{member.full_name.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                            <Label htmlFor={member.id} className="cursor-pointer flex-1">
+                              {member.full_name}
+                            </Label>
+                          </div>
+                        ))
+                      )}
                     </div>
                   </div>
-                  <Button onClick={handleCreateGroup} className="w-full">
+                  <Button onClick={handleCreateGroup} className="w-full" disabled={availableMembers.length === 0}>
                     {t.messages.createGroup}
                   </Button>
                 </div>
@@ -341,99 +224,110 @@ const Messages = () => {
 
           {/* Channels List */}
           <ScrollArea className="flex-1">
-            {/* Direct Messages */}
-            <div className="p-2">
-              <div className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-muted-foreground uppercase">
-                <MessageSquare className="w-3 h-3" />
-                {t.messages.directMessages}
+            {conversations.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full py-8 px-4 text-center">
+                <MessageSquare className="w-12 h-12 text-muted-foreground/30 mb-3" />
+                <p className="text-sm text-muted-foreground">
+                  {language === 'fr' ? 'Aucune conversation' : 'No conversations'}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {language === 'fr' ? 'Créez un groupe pour commencer' : 'Create a group to start'}
+                </p>
               </div>
-              {directChannels.map(channel => (
-                <button
-                  key={channel.id}
-                  onClick={() => setSelectedChannel(channel)}
-                  className={cn(
-                    "w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors",
-                    selectedChannel?.id === channel.id 
-                      ? "bg-primary/10 text-primary" 
-                      : "hover:bg-secondary"
-                  )}
-                >
-                  <div className="relative">
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={getChannelAvatar(channel) || ''} />
-                      <AvatarFallback>{getChannelName(channel).charAt(0)}</AvatarFallback>
-                    </Avatar>
-                    {getChannelStatus(channel) && (
-                      <span className={cn(
-                        "absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-card",
-                        getChannelStatus(channel) === 'online' ? 'bg-status-done' :
-                        getChannelStatus(channel) === 'away' ? 'bg-status-progress' : 'bg-muted'
-                      )} />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <p className="font-medium text-sm truncate">{getChannelName(channel)}</p>
-                      {channel.last_message_time && (
-                        <span className="text-xs text-muted-foreground">
-                          {formatDistanceToNow(new Date(channel.last_message_time), { addSuffix: false, locale: dateLocale })}
-                        </span>
-                      )}
+            ) : (
+              <>
+                {/* Direct Messages */}
+                {directChannels.length > 0 && (
+                  <div className="p-2">
+                    <div className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-muted-foreground uppercase">
+                      <MessageSquare className="w-3 h-3" />
+                      {t.messages.directMessages}
                     </div>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {channel.last_message || t.messages.noMessages}
-                    </p>
+                    {directChannels.map(channel => (
+                      <button
+                        key={channel.id}
+                        onClick={() => setActiveConversationId(channel.id)}
+                        className={cn(
+                          "w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors",
+                          activeConversationId === channel.id 
+                            ? "bg-primary/10 text-primary" 
+                            : "hover:bg-secondary"
+                        )}
+                      >
+                        <div className="relative">
+                          <Avatar className="h-10 w-10">
+                            <AvatarImage src={getChannelAvatar(channel) || ''} />
+                            <AvatarFallback>{getChannelName(channel).charAt(0)}</AvatarFallback>
+                          </Avatar>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <p className="font-medium text-sm truncate">{getChannelName(channel)}</p>
+                            {channel.lastMessageTime && (
+                              <span className="text-xs text-muted-foreground">
+                                {formatDistanceToNow(channel.lastMessageTime, { addSuffix: false, locale: dateLocale })}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {channel.lastMessage || t.messages.noMessages}
+                          </p>
+                        </div>
+                        {channel.unreadCount > 0 && (
+                          <Badge variant="default" className="h-5 min-w-[20px] px-1.5 text-xs">
+                            {channel.unreadCount}
+                          </Badge>
+                        )}
+                      </button>
+                    ))}
                   </div>
-                  {channel.unread_count > 0 && (
-                    <Badge variant="default" className="h-5 min-w-[20px] px-1.5 text-xs">
-                      {channel.unread_count}
-                    </Badge>
-                  )}
-                </button>
-              ))}
-            </div>
+                )}
 
-            {/* Groups */}
-            <div className="p-2">
-              <div className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-muted-foreground uppercase">
-                <Users className="w-3 h-3" />
-                {t.messages.groups}
-              </div>
-              {groupChannels.map(channel => (
-                <button
-                  key={channel.id}
-                  onClick={() => setSelectedChannel(channel)}
-                  className={cn(
-                    "w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors",
-                    selectedChannel?.id === channel.id 
-                      ? "bg-primary/10 text-primary" 
-                      : "hover:bg-secondary"
-                  )}
-                >
-                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
-                    <Hash className="w-5 h-5 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <p className="font-medium text-sm truncate">{channel.name}</p>
-                      {channel.last_message_time && (
-                        <span className="text-xs text-muted-foreground">
-                          {formatDistanceToNow(new Date(channel.last_message_time), { addSuffix: false, locale: dateLocale })}
-                        </span>
-                      )}
+                {/* Groups */}
+                {groupChannels.length > 0 && (
+                  <div className="p-2">
+                    <div className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-muted-foreground uppercase">
+                      <Users className="w-3 h-3" />
+                      {t.messages.groups}
                     </div>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {channel.members?.length} {t.messages.members} • {channel.last_message || t.messages.noMessages}
-                    </p>
+                    {groupChannels.map(channel => (
+                      <button
+                        key={channel.id}
+                        onClick={() => setActiveConversationId(channel.id)}
+                        className={cn(
+                          "w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors",
+                          activeConversationId === channel.id 
+                            ? "bg-primary/10 text-primary" 
+                            : "hover:bg-secondary"
+                        )}
+                      >
+                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+                          <Hash className="w-5 h-5 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <p className="font-medium text-sm truncate">{channel.name}</p>
+                            {channel.lastMessageTime && (
+                              <span className="text-xs text-muted-foreground">
+                                {formatDistanceToNow(channel.lastMessageTime, { addSuffix: false, locale: dateLocale })}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {channel.members?.length || 0} {t.messages.members} • {channel.lastMessage || t.messages.noMessages}
+                          </p>
+                        </div>
+                        {channel.unreadCount > 0 && (
+                          <Badge variant="default" className="h-5 min-w-[20px] px-1.5 text-xs">
+                            {channel.unreadCount}
+                          </Badge>
+                        )}
+                      </button>
+                    ))}
                   </div>
-                  {channel.unread_count > 0 && (
-                    <Badge variant="default" className="h-5 min-w-[20px] px-1.5 text-xs">
-                      {channel.unread_count}
-                    </Badge>
-                  )}
-                </button>
-              ))}
-            </div>
+                )}
+              </>
+            )}
           </ScrollArea>
         </div>
 
@@ -452,8 +346,7 @@ const Messages = () => {
                     <div>
                       <p className="font-semibold">{getChannelName(selectedChannel)}</p>
                       <p className="text-xs text-muted-foreground capitalize">
-                        {getChannelStatus(selectedChannel) === 'online' ? t.messages.online :
-                         getChannelStatus(selectedChannel) === 'away' ? t.messages.away : t.messages.offline}
+                        {t.messages.online}
                       </p>
                     </div>
                   </>
@@ -465,7 +358,7 @@ const Messages = () => {
                     <div>
                       <p className="font-semibold">{selectedChannel.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {selectedChannel.members?.length} {t.messages.members}
+                        {selectedChannel.members?.length || 0} {t.messages.members}
                       </p>
                     </div>
                   </>
@@ -487,45 +380,57 @@ const Messages = () => {
             {/* Messages */}
             <ScrollArea className="flex-1 p-6">
               <div className="space-y-4">
-                {messages.map((message, index) => {
-                  const isMe = message.user_id === 'me';
-                  const showAvatar = !isMe && (index === 0 || messages[index - 1]?.user_id !== message.user_id);
-                  
-                  return (
-                    <div
-                      key={message.id}
-                      className={cn(
-                        "flex gap-3",
-                        isMe ? "justify-end" : "justify-start"
-                      )}
-                    >
-                      {!isMe && showAvatar && (
-                        <Avatar className="h-8 w-8">
-                          <AvatarImage src={message.sender?.avatar_url} />
-                          <AvatarFallback>{message.sender?.full_name?.charAt(0) || '?'}</AvatarFallback>
-                        </Avatar>
-                      )}
-                      {!isMe && !showAvatar && <div className="w-8" />}
-                      <div className={cn(
-                        "max-w-[70%] rounded-2xl px-4 py-2",
-                        isMe 
-                          ? "bg-primary text-primary-foreground rounded-br-md" 
-                          : "bg-secondary rounded-bl-md"
-                      )}>
-                        {!isMe && showAvatar && (
-                          <p className="text-xs font-medium mb-1 opacity-70">{message.sender?.full_name}</p>
+                {selectedChannel.messages.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full py-12 text-center">
+                    <MessageSquare className="w-12 h-12 text-muted-foreground/30 mb-3" />
+                    <p className="text-sm text-muted-foreground">
+                      {language === 'fr' ? 'Aucun message' : 'No messages yet'}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {language === 'fr' ? 'Envoyez le premier message!' : 'Send the first message!'}
+                    </p>
+                  </div>
+                ) : (
+                  selectedChannel.messages.map((message, index) => {
+                    const isMe = message.senderId === supabaseUser?.id;
+                    const showAvatar = !isMe && (index === 0 || selectedChannel.messages[index - 1]?.senderId !== message.senderId);
+                    
+                    return (
+                      <div
+                        key={message.id}
+                        className={cn(
+                          "flex gap-3",
+                          isMe ? "justify-end" : "justify-start"
                         )}
-                        <p className="text-sm">{message.content}</p>
-                        <p className={cn(
-                          "text-[10px] mt-1",
-                          isMe ? "text-primary-foreground/70" : "text-muted-foreground"
+                      >
+                        {!isMe && showAvatar && (
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={message.senderAvatar} />
+                            <AvatarFallback>{message.senderName?.charAt(0) || '?'}</AvatarFallback>
+                          </Avatar>
+                        )}
+                        {!isMe && !showAvatar && <div className="w-8" />}
+                        <div className={cn(
+                          "max-w-[70%] rounded-2xl px-4 py-2",
+                          isMe 
+                            ? "bg-primary text-primary-foreground rounded-br-md" 
+                            : "bg-secondary rounded-bl-md"
                         )}>
-                          {format(new Date(message.created_at), 'HH:mm', { locale: dateLocale })}
-                        </p>
+                          {!isMe && showAvatar && (
+                            <p className="text-xs font-medium mb-1 opacity-70">{message.senderName}</p>
+                          )}
+                          <p className="text-sm">{message.content}</p>
+                          <p className={cn(
+                            "text-[10px] mt-1",
+                            isMe ? "text-primary-foreground/70" : "text-muted-foreground"
+                          )}>
+                            {format(message.timestamp, 'HH:mm', { locale: dateLocale })}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                )}
                 <div ref={messagesEndRef} />
               </div>
             </ScrollArea>
@@ -543,13 +448,14 @@ const Messages = () => {
                     onChange={(e) => setNewMessage(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
                     className="pr-10"
+                    disabled={isSending}
                   />
                   <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2">
                     <Smile className="w-4 h-4 text-muted-foreground" />
                   </Button>
                 </div>
-                <Button onClick={handleSendMessage} className="gap-2">
-                  <Send className="w-4 h-4" />
+                <Button onClick={handleSendMessage} className="gap-2" disabled={isSending}>
+                  {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                   {t.messages.send}
                 </Button>
               </div>
