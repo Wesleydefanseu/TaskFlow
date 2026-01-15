@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useUser } from '@/contexts/UserContext';
 
 export interface Notification {
   id: string;
@@ -20,124 +22,171 @@ interface NotificationsContextType {
   markAllAsRead: () => void;
   deleteNotification: (id: string) => void;
   clearAll: () => void;
+  isLoading: boolean;
 }
 
 const NotificationsContext = createContext<NotificationsContextType | undefined>(undefined);
 
-// Mock initial notifications
-const initialNotifications: Notification[] = [
-  {
-    id: '1',
-    type: 'mention',
-    title: 'Nouvelle mention',
-    message: 'Sophie Martin vous a mentionné dans "Refonte du site web"',
-    timestamp: new Date(Date.now() - 5 * 60 * 1000),
-    read: false,
-    sender: 'Sophie Martin',
-    link: '/projects/1'
-  },
-  {
-    id: '2',
-    type: 'task',
-    title: 'Tâche assignée',
-    message: 'Vous avez été assigné à "Créer les maquettes UI"',
-    timestamp: new Date(Date.now() - 30 * 60 * 1000),
-    read: false,
-    link: '/projects/1'
-  },
-  {
-    id: '3',
-    type: 'comment',
-    title: 'Nouveau commentaire',
-    message: 'Lucas Dubois a commenté sur votre tâche',
-    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
-    read: false,
-    sender: 'Lucas Dubois',
-    link: '/projects/2'
-  },
-  {
-    id: '4',
-    type: 'success',
-    title: 'Projet terminé',
-    message: 'Le projet "Marketing Q1" a été marqué comme terminé',
-    timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000),
-    read: true,
-    link: '/projects/3'
-  },
-  {
-    id: '5',
-    type: 'warning',
-    title: 'Échéance proche',
-    message: 'La tâche "Revue du design" expire demain',
-    timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000),
-    read: true,
-    link: '/projects/1'
-  },
-  {
-    id: '6',
-    type: 'info',
-    title: 'Mise à jour système',
-    message: 'De nouvelles fonctionnalités sont disponibles',
-    timestamp: new Date(Date.now() - 48 * 60 * 60 * 1000),
-    read: true
-  }
-];
-
 export function NotificationsProvider({ children }: { children: React.ReactNode }) {
-  const [notifications, setNotifications] = useState<Notification[]>(initialNotifications);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { supabaseUser } = useUser();
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  const addNotification = useCallback((notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => {
-    const newNotification: Notification = {
-      ...notification,
-      id: Date.now().toString(),
-      timestamp: new Date(),
-      read: false
-    };
-    setNotifications(prev => [newNotification, ...prev]);
-  }, []);
+  // Fetch notifications from database
+  const fetchNotifications = useCallback(async () => {
+    if (!supabaseUser) {
+      setNotifications([]);
+      setIsLoading(false);
+      return;
+    }
 
-  const markAsRead = useCallback((id: string) => {
-    setNotifications(prev =>
-      prev.map(n => (n.id === id ? { ...n, read: true } : n))
-    );
-  }, []);
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', supabaseUser.id)
+        .order('created_at', { ascending: false })
+        .limit(50);
 
-  const markAllAsRead = useCallback(() => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-  }, []);
+      if (error) throw error;
 
-  const deleteNotification = useCallback((id: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
-  }, []);
+      const mappedNotifications: Notification[] = (data || []).map(n => ({
+        id: n.id,
+        type: (n.type as Notification['type']) || 'info',
+        title: n.title,
+        message: n.message || '',
+        timestamp: new Date(n.created_at),
+        read: n.is_read || false,
+        link: n.link || undefined,
+      }));
 
-  const clearAll = useCallback(() => {
-    setNotifications([]);
-  }, []);
+      setNotifications(mappedNotifications);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [supabaseUser]);
 
-  // Simulate real-time notifications
   useEffect(() => {
-    const interval = setInterval(() => {
-      const shouldAddNotification = Math.random() > 0.7;
-      if (shouldAddNotification) {
-        const types: Array<Notification['type']> = ['info', 'task', 'mention', 'comment'];
-        const randomType = types[Math.floor(Math.random() * types.length)];
-        const messages = {
-          info: { title: 'Information', message: 'Une nouvelle mise à jour est disponible' },
-          task: { title: 'Nouvelle tâche', message: 'Une tâche vous a été assignée' },
-          mention: { title: 'Mention', message: 'Quelqu\'un vous a mentionné dans un commentaire' },
-          comment: { title: 'Commentaire', message: 'Nouveau commentaire sur votre tâche' }
-        };
-        addNotification({
-          type: randomType,
-          ...messages[randomType]
-        });
-      }
-    }, 30000); // Check every 30 seconds
+    fetchNotifications();
+  }, [fetchNotifications]);
 
-    return () => clearInterval(interval);
-  }, [addNotification]);
+  // Subscribe to realtime notifications
+  useEffect(() => {
+    if (!supabaseUser) return;
+
+    const channel = supabase
+      .channel('notifications-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${supabaseUser.id}`,
+        },
+        (payload) => {
+          const n = payload.new as any;
+          const newNotification: Notification = {
+            id: n.id,
+            type: (n.type as Notification['type']) || 'info',
+            title: n.title,
+            message: n.message || '',
+            timestamp: new Date(n.created_at),
+            read: n.is_read || false,
+            link: n.link || undefined,
+          };
+          setNotifications(prev => [newNotification, ...prev]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [supabaseUser]);
+
+  const addNotification = useCallback(async (notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => {
+    if (!supabaseUser) return;
+
+    try {
+      await supabase
+        .from('notifications')
+        .insert({
+          user_id: supabaseUser.id,
+          title: notification.title,
+          message: notification.message,
+          type: notification.type,
+          link: notification.link,
+          is_read: false,
+        });
+      // Realtime will handle adding to state
+    } catch (error) {
+      console.error('Error adding notification:', error);
+    }
+  }, [supabaseUser]);
+
+  const markAsRead = useCallback(async (id: string) => {
+    try {
+      await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('id', id);
+
+      setNotifications(prev =>
+        prev.map(n => (n.id === id ? { ...n, read: true } : n))
+      );
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  }, []);
+
+  const markAllAsRead = useCallback(async () => {
+    if (!supabaseUser) return;
+
+    try {
+      await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('user_id', supabaseUser.id)
+        .eq('is_read', false);
+
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+    }
+  }, [supabaseUser]);
+
+  const deleteNotification = useCallback(async (id: string) => {
+    try {
+      await supabase
+        .from('notifications')
+        .delete()
+        .eq('id', id);
+
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+    }
+  }, []);
+
+  const clearAll = useCallback(async () => {
+    if (!supabaseUser) return;
+
+    try {
+      await supabase
+        .from('notifications')
+        .delete()
+        .eq('user_id', supabaseUser.id);
+
+      setNotifications([]);
+    } catch (error) {
+      console.error('Error clearing notifications:', error);
+    }
+  }, [supabaseUser]);
 
   return (
     <NotificationsContext.Provider
@@ -148,7 +197,8 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
         markAsRead,
         markAllAsRead,
         deleteNotification,
-        clearAll
+        clearAll,
+        isLoading,
       }}
     >
       {children}
