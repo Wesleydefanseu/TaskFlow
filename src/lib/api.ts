@@ -638,24 +638,22 @@ export async function unassignTaskFromUser(taskId: string, userId: string) {
 }
 
 export async function assignTaskToUsers(taskId: string, userIds: string[]) {
-  // First remove all existing assignees
-  await supabase
+  if (userIds.length === 0) return;
+  
+  const { error } = await supabase
     .from("task_assignees")
-    .delete()
-    .eq("task_id", taskId);
+    .insert(
+      userIds.map(userId => ({
+        task_id: taskId,
+        user_id: userId,
+      }))
+    );
 
-  // Then add new assignees
-  if (userIds.length > 0) {
-    const { error } = await supabase
-      .from("task_assignees")
-      .insert(
-        userIds.map(userId => ({
-          task_id: taskId,
-          user_id: userId,
-        }))
-      );
-
-    if (error) throw error;
+  if (error) {
+    if (error.code === "23505") {
+      throw new Error("Certains utilisateurs sont déjà assignés à cette tâche");
+    }
+    throw error;
   }
 }
 
@@ -722,4 +720,104 @@ export async function updateTeamMemberRole(
     .eq("user_id", userId);
 
   if (error) throw error;
+}
+
+// =====================================================
+// MESSAGING GROUPS API
+// =====================================================
+
+export async function createMessageGroup(
+  workspaceId: string,
+  name: string,
+  description?: string,
+  memberIds?: string[]
+) {
+  const user = await supabase.auth.getUser();
+  
+  const { data: group, error: groupError } = await supabase
+    .from("message_groups")
+    .insert({
+      workspace_id: workspaceId,
+      name,
+      description,
+      created_by: user.data.user?.id,
+    })
+    .select()
+    .single();
+
+  if (groupError) throw groupError;
+
+  // Add members to the group
+  if (memberIds && memberIds.length > 0) {
+    const groupMembers = memberIds.map(userId => ({
+      group_id: group.id,
+      user_id: userId,
+    }));
+
+    const { error: memberError } = await supabase
+      .from("group_members")
+      .insert(groupMembers);
+
+    if (memberError) throw memberError;
+  }
+
+  // Add creator to group
+  const { error: creatorError } = await supabase
+    .from("group_members")
+    .insert({
+      group_id: group.id,
+      user_id: user.data.user?.id,
+    });
+
+  if (creatorError && creatorError.code !== "23505") throw creatorError;
+
+  return group;
+}
+
+export async function addMemberToGroup(groupId: string, userId: string) {
+  const { error } = await supabase
+    .from("group_members")
+    .insert({
+      group_id: groupId,
+      user_id: userId,
+    });
+
+  if (error) {
+    if (error.code === "23505") {
+      throw new Error("Cet utilisateur est déjà dans le groupe");
+    }
+    throw error;
+  }
+}
+
+export async function removeMemberFromGroup(groupId: string, userId: string) {
+  const { error } = await supabase
+    .from("group_members")
+    .delete()
+    .eq("group_id", groupId)
+    .eq("user_id", userId);
+
+  if (error) throw error;
+}
+
+export async function getMessageGroup(groupId: string) {
+  const { data, error } = await supabase
+    .from("message_groups")
+    .select(`
+      *,
+      group_members (
+        user_id,
+        profiles (
+          id,
+          full_name,
+          avatar_url,
+          email
+        )
+      )
+    `)
+    .eq("id", groupId)
+    .single();
+
+  if (error) throw error;
+  return data;
 }

@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -5,6 +6,12 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useTheme } from '@/contexts/ThemeContext';
+import { useUser } from '@/contexts/UserContext';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import { 
   User, 
   Bell, 
@@ -225,13 +232,8 @@ const Settings = () => {
                 {/* Avatar */}
                 <div className="flex items-center gap-6 mb-6">
                   <Avatar className="h-20 w-20">
-
                     <AvatarImage src={user?.avatar} />
                     <AvatarFallback className="text-2xl">{userInitials}</AvatarFallback>
-
-                    <AvatarImage src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200" />
-                    <AvatarFallback className="text-2xl">JD</AvatarFallback>
-
                   </Avatar>
                   <div>
                     <Button variant="outline" size="sm">
@@ -273,33 +275,17 @@ const Settings = () => {
                       id="phone" 
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      placeholder="+33 6 12 34 56 78"
+                      placeholder="+237 6 xx xx xx xx"
                     />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="role">Rôle</Label>
-                    <Input 
-                      id="role" 
+                    <Input
+                      id="role"
                       value={user?.role || ''}
                       disabled
                       className="bg-muted"
                     />
-
-                    <Label htmlFor="firstName">Prénom</Label>
-                    <Input id="firstName" defaultValue="Jean" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="lastName">Nom</Label>
-                    <Input id="lastName" defaultValue="Dupont" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input id="email" type="email" defaultValue="jean@taskflow.com" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Téléphone</Label>
-                    <Input id="phone" defaultValue="+33 6 12 34 56 78" />
-
                   </div>
                   <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="bio">Bio</Label>
@@ -330,7 +316,7 @@ const Settings = () => {
                 >
                   Annuler
                 </Button>
-                <Button 
+                <Button
                   variant="gradient"
                   onClick={handleSaveProfile}
                   disabled={isSavingProfile}
@@ -344,9 +330,6 @@ const Settings = () => {
                     'Enregistrer'
                   )}
                 </Button>
-
-                <Button variant="outline">Annuler</Button>
-                <Button variant="gradient">Enregistrer</Button>
 
               </div>
             </div>
