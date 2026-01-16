@@ -5,15 +5,10 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { TeamMemberForm } from '@/components/forms/TeamMemberForm';
 import { usePermissions, UserRole, roleLabels } from '@/contexts/UserContext';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
-<<<<<<< HEAD
 import { useNotifications } from '@/contexts/NotificationsContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { inviteTeamMember, updateTeamMemberRole } from '@/lib/api';
-=======
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
->>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
 import { 
   Plus, 
   Mail, 
@@ -27,14 +22,10 @@ import {
   FolderKanban,
   Pencil,
   Trash2,
-<<<<<<< HEAD
   Loader2,
   Copy,
   RefreshCw,
   Link as LinkIcon
-=======
-  Loader2
->>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -70,7 +61,6 @@ interface TeamMember {
   projects: number;
 }
 
-<<<<<<< HEAD
 // Generate unique invitation code
 const generateInvitationCode = (workspaceId: string): string => {
   const timestamp = Date.now().toString(36).toUpperCase();
@@ -83,11 +73,6 @@ const Team = () => {
   const permissions = usePermissions();
   const { currentWorkspace, members, removeMember } = useWorkspace();
   const { addNotification } = useNotifications();
-=======
-const Team = () => {
-  const permissions = usePermissions();
-  const { currentWorkspace, members, removeMember } = useWorkspace();
->>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
@@ -95,11 +80,8 @@ const Team = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [memberToDelete, setMemberToDelete] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-<<<<<<< HEAD
   const [invitationCode, setInvitationCode] = useState<string>('');
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
-=======
->>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
 
   useEffect(() => {
     const fetchTeamData = async () => {
@@ -107,15 +89,12 @@ const Team = () => {
       
       setIsLoading(true);
       try {
-<<<<<<< HEAD
         // Generate invitation code if workspace exists
         if (currentWorkspace && !invitationCode) {
           const code = generateInvitationCode(currentWorkspace.id);
           setInvitationCode(code);
         }
 
-=======
->>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
         // Transform workspace members to TeamMember format
         const teamData: TeamMember[] = await Promise.all(
           members.map(async (member) => {
@@ -187,7 +166,6 @@ const Team = () => {
     setFormOpen(true);
   };
 
-<<<<<<< HEAD
   const copyInvitationCode = async () => {
     try {
       await navigator.clipboard.writeText(invitationCode);
@@ -208,8 +186,6 @@ const Team = () => {
     }, 500);
   };
 
-=======
->>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
   const handleEditMember = (member: TeamMember) => {
     setEditingMember(member);
     setFormOpen(true);
@@ -224,7 +200,6 @@ const Team = () => {
     if (memberToDelete) {
       const member = teamMembers.find(m => m.id === memberToDelete);
       if (member) {
-<<<<<<< HEAD
         try {
           // First, remove from database
           const { error } = await supabase
@@ -254,11 +229,6 @@ const Team = () => {
           console.error('Error in confirmDelete:', error);
           toast.error('Erreur lors de la suppression');
         }
-=======
-        await removeMember(member.user_id);
-        setTeamMembers(prev => prev.filter(m => m.id !== memberToDelete));
-        toast.success('Membre supprimé avec succès');
->>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
       }
       setMemberToDelete(null);
     }
@@ -266,14 +236,11 @@ const Team = () => {
   };
 
   const handleSubmit = async (data: any) => {
-<<<<<<< HEAD
     if (!currentWorkspace) {
       toast.error('Aucun espace de travail sélectionné');
       return;
     }
 
-=======
->>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
     if (editingMember) {
       // Update existing member role
       try {
@@ -284,27 +251,15 @@ const Team = () => {
           'observateur': 'viewer'
         };
         
-<<<<<<< HEAD
         await updateTeamMemberRole(currentWorkspace.id, editingMember.user_id, roleMap[data.role] as 'owner' | 'admin' | 'manager' | 'member' | 'viewer');
         
         setTeamMembers(prev => prev.map(m => 
           m.id === editingMember.id 
             ? { ...m, role: data.role }
-=======
-        await supabase
-          .from('workspace_members')
-          .update({ role: roleMap[data.role] || 'member' })
-          .eq('id', editingMember.id);
-        
-        setTeamMembers(prev => prev.map(m => 
-          m.id === editingMember.id 
-            ? { ...m, ...data }
->>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
             : m
         ));
         toast.success('Membre mis à jour');
       } catch (error) {
-<<<<<<< HEAD
         console.error('Error updating member:', error);
         toast.error('Erreur lors de la mise à jour');
       }
@@ -371,10 +326,6 @@ const Team = () => {
           toast.error('Erreur lors de l\'invitation');
         }
       }
-=======
-        toast.error('Erreur lors de la mise à jour');
-      }
->>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
     }
     setFormOpen(false);
   };
@@ -418,7 +369,6 @@ const Team = () => {
         </div>
       </div>
 
-<<<<<<< HEAD
       {/* Invitation Code Section */}
       {permissions.canManageTeam && (
         <div className="mb-6 p-4 bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 rounded-xl">
@@ -460,9 +410,7 @@ const Team = () => {
           </div>
         </div>
       )}
-=======
       {/* Team Grid */}
->>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
       {filteredMembers.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-muted-foreground">Aucun membre dans l'équipe</p>

@@ -14,7 +14,6 @@ import {
   CreditCard,
   Upload,
   Sun,
-<<<<<<< HEAD
   Moon,
   Loader2,
   Mail,
@@ -23,13 +22,6 @@ import {
   AtSign,
   Clock
 } from 'lucide-react';
-import { useTheme } from '@/contexts/ThemeContext';
-import { useUser } from '@/contexts/UserContext';
-import { useWorkspace } from '@/contexts/WorkspaceContext';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
-import { useState, useEffect } from 'react';
 
 const Settings = () => {
   const { theme, setTheme } = useTheme();
@@ -196,15 +188,6 @@ const Settings = () => {
     .map(n => n[0])
     .join('')
     .toUpperCase() || 'U';
-=======
-  Moon
-} from 'lucide-react';
-import { useTheme } from '@/contexts/ThemeContext';
-import { cn } from '@/lib/utils';
-
-const Settings = () => {
-  const { theme, setTheme } = useTheme();
->>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
 
   return (
     <DashboardLayout title="Paramètres" subtitle="Gérez vos préférences et votre compte">
@@ -242,13 +225,13 @@ const Settings = () => {
                 {/* Avatar */}
                 <div className="flex items-center gap-6 mb-6">
                   <Avatar className="h-20 w-20">
-<<<<<<< HEAD
+
                     <AvatarImage src={user?.avatar} />
                     <AvatarFallback className="text-2xl">{userInitials}</AvatarFallback>
-=======
+
                     <AvatarImage src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200" />
                     <AvatarFallback className="text-2xl">JD</AvatarFallback>
->>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
+
                   </Avatar>
                   <div>
                     <Button variant="outline" size="sm">
@@ -264,7 +247,7 @@ const Settings = () => {
                 {/* Form */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-<<<<<<< HEAD
+
                     <Label htmlFor="fullName">Nom complet *</Label>
                     <Input 
                       id="fullName" 
@@ -301,7 +284,7 @@ const Settings = () => {
                       disabled
                       className="bg-muted"
                     />
-=======
+
                     <Label htmlFor="firstName">Prénom</Label>
                     <Input id="firstName" defaultValue="Jean" />
                   </div>
@@ -316,7 +299,7 @@ const Settings = () => {
                   <div className="space-y-2">
                     <Label htmlFor="phone">Téléphone</Label>
                     <Input id="phone" defaultValue="+33 6 12 34 56 78" />
->>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
+
                   </div>
                   <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="bio">Bio</Label>
@@ -324,19 +307,19 @@ const Settings = () => {
                       id="bio"
                       className="w-full min-h-24 px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                       placeholder="Quelques mots sur vous..."
-<<<<<<< HEAD
+
                       value={bio}
                       onChange={(e) => setBio(e.target.value)}
-=======
+
                       defaultValue="Chef de projet passionné par l'innovation et le travail d'équipe."
->>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
+
                     />
                   </div>
                 </div>
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-border">
-<<<<<<< HEAD
+
                 <Button 
                   variant="outline" 
                   onClick={() => {
@@ -361,17 +344,17 @@ const Settings = () => {
                     'Enregistrer'
                   )}
                 </Button>
-=======
+
                 <Button variant="outline">Annuler</Button>
                 <Button variant="gradient">Enregistrer</Button>
->>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
+
               </div>
             </div>
           </TabsContent>
 
           {/* Notifications Tab */}
           <TabsContent value="notifications">
-<<<<<<< HEAD
+
             <div className="bg-card border border-border rounded-xl p-6 space-y-4">
               <div>
                 <h3 className="text-lg font-semibold mb-4">Préférences de notifications</h3>
@@ -492,28 +475,6 @@ const Settings = () => {
                 >
                   Enregistrer les préférences
                 </Button>
-=======
-            <div className="bg-card border border-border rounded-xl p-6 space-y-6">
-              <h3 className="text-lg font-semibold">Préférences de notification</h3>
-
-              <div className="space-y-4">
-                {[
-                  { title: 'Notifications par email', description: 'Recevoir des emails pour les mises à jour importantes' },
-                  { title: 'Notifications push', description: 'Recevoir des notifications dans le navigateur' },
-                  { title: 'Tâches assignées', description: 'Être notifié quand une tâche vous est assignée' },
-                  { title: 'Commentaires', description: 'Être notifié des nouveaux commentaires' },
-                  { title: 'Mentions', description: 'Être notifié quand quelqu\'un vous mentionne' },
-                  { title: 'Rappels de deadline', description: 'Recevoir des rappels avant les échéances' },
-                ].map((item, index) => (
-                  <div key={index} className="flex items-center justify-between py-3 border-b border-border last:border-0">
-                    <div>
-                      <p className="font-medium">{item.title}</p>
-                      <p className="text-sm text-muted-foreground">{item.description}</p>
-                    </div>
-                    <Switch defaultChecked={index < 4} />
-                  </div>
-                ))}
->>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
               </div>
             </div>
           </TabsContent>
@@ -587,7 +548,7 @@ const Settings = () => {
                 <div className="space-y-4 max-w-md">
                   <div className="space-y-2">
                     <Label htmlFor="currentPassword">Mot de passe actuel</Label>
-<<<<<<< HEAD
+
                     <Input 
                       id="currentPassword" 
                       type="password"
@@ -631,7 +592,7 @@ const Settings = () => {
                       'Mettre à jour'
                     )}
                   </Button>
-=======
+
                     <Input id="currentPassword" type="password" />
                   </div>
                   <div className="space-y-2">
@@ -643,7 +604,7 @@ const Settings = () => {
                     <Input id="confirmPassword" type="password" />
                   </div>
                   <Button variant="gradient">Mettre à jour</Button>
->>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
+
                 </div>
               </div>
 
@@ -656,11 +617,11 @@ const Settings = () => {
                       Ajoutez une couche de sécurité supplémentaire
                     </p>
                   </div>
-<<<<<<< HEAD
+
                   <Switch disabled />
-=======
+
                   <Switch />
->>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
+
                 </div>
               </div>
 
@@ -670,13 +631,14 @@ const Settings = () => {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between p-3 bg-secondary rounded-lg">
                     <div>
-<<<<<<< HEAD
+
                       <p className="font-medium text-sm">Navigateur actuel</p>
                       <p className="text-xs text-muted-foreground">{new Date().toLocaleDateString('fr-FR')} • Session en cours</p>
                     </div>
                     <span className="text-xs text-status-done font-medium">Actif</span>
                   </div>
-=======
+                  <div className="flex items-center justify-between p-3 bg-secondary rounded-lg">
+                    <div>
                       <p className="font-medium text-sm">Chrome sur MacOS</p>
                       <p className="text-xs text-muted-foreground">Paris, France • Session actuelle</p>
                     </div>
@@ -691,10 +653,8 @@ const Settings = () => {
                       Révoquer
                     </Button>
                   </div>
->>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
                 </div>
               </div>
-            </div>
           </TabsContent>
 
           {/* Billing Tab */}

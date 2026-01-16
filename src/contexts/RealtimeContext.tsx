@@ -98,44 +98,7 @@ const initialActivities: Activity[] = [
   },
 ];
 
-<<<<<<< HEAD
 const initialPresences: Presence[] = [];
-=======
-const initialPresences: Presence[] = [
-  {
-    id: 'user-1',
-    name: 'Marie-Claire Fotso',
-    avatar: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=100',
-    status: 'online',
-    currentPage: 'Projets',
-    lastSeen: new Date(),
-  },
-  {
-    id: 'user-2',
-    name: 'Jean-Paul Mbarga',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100',
-    status: 'online',
-    currentPage: 'Dashboard',
-    lastSeen: new Date(),
-  },
-  {
-    id: 'user-3',
-    name: 'Sandrine Tchamba',
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100',
-    status: 'away',
-    currentPage: 'Analytiques',
-    lastSeen: new Date(Date.now() - 10 * 60000),
-  },
-  {
-    id: 'user-4',
-    name: 'Emmanuel Ngono',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100',
-    status: 'busy',
-    currentPage: 'Calendrier',
-    lastSeen: new Date(),
-  },
-];
->>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
 
 const initialComments: Record<string, TaskComment[]> = {
   'task-1': [

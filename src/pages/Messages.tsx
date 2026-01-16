@@ -9,10 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-<<<<<<< HEAD
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-=======
->>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useChat } from '@/contexts/ChatContext';
 import { useUser } from '@/contexts/UserContext';
@@ -53,10 +50,9 @@ const Messages = () => {
   const [newMessage, setNewMessage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [showNewGroup, setShowNewGroup] = useState(false);
-<<<<<<< HEAD
+
   const [conversationTab, setConversationTab] = useState<'all' | 'direct' | 'group'>('all');
-=======
->>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
+
   const [newGroupName, setNewGroupName] = useState('');
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [isSending, setIsSending] = useState(false);
@@ -230,9 +226,8 @@ const Messages = () => {
             </Dialog>
           </div>
 
-<<<<<<< HEAD
           {/* Tabs for conversation types */}
-          <Tabs value={conversationTab} onValueChange={(value: any) => setConversationTab(value)} className="w-full">
+          <Tabs value={conversationTab} onValueChange={(value: any) => setConversationTab(value)} className="w-full flex flex-col flex-1">
             <TabsList className="w-full justify-start">
               <TabsTrigger value="all" className="gap-2">
                 <MessageSquare className="w-4 h-4" />
@@ -251,36 +246,125 @@ const Messages = () => {
               </TabsTrigger>
             </TabsList>
 
-          {/* Channels List */}
-          <ScrollArea className="flex-1 mt-4">
-=======
-          {/* Channels List */}
-          <ScrollArea className="flex-1">
->>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
-            {conversations.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full py-8 px-4 text-center">
-                <MessageSquare className="w-12 h-12 text-muted-foreground/30 mb-3" />
-                <p className="text-sm text-muted-foreground">
-                  {language === 'fr' ? 'Aucune conversation' : 'No conversations'}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {language === 'fr' ? 'Créez un groupe pour commencer' : 'Create a group to start'}
-                </p>
-              </div>
-            ) : (
-              <>
-<<<<<<< HEAD
-                {/* Show all conversations */}
-                {conversationTab === 'all' && (
-                  <>
-                    {/* Direct Messages */}
-                    {directChannels.length > 0 && (
-                      <div className="p-2">
-                        <div className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-muted-foreground uppercase">
-                          <MessageSquare className="w-3 h-3" />
-                          {t.messages.directMessages}
+            {/* Channels List */}
+            <ScrollArea className="flex-1 mt-4">
+              {conversations.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full py-8 px-4 text-center">
+                  <MessageSquare className="w-12 h-12 text-muted-foreground/30 mb-3" />
+                  <p className="text-sm text-muted-foreground">
+                    {language === 'fr' ? 'Aucune conversation' : 'No conversations'}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {language === 'fr' ? 'Créez un groupe pour commencer' : 'Create a group to start'}
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* Show all conversations */}
+                  {conversationTab === 'all' && (
+                    <>
+                      {/* Direct Messages */}
+                      {directChannels.length > 0 && (
+                        <div className="p-2">
+                          <div className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-muted-foreground uppercase">
+                            <MessageSquare className="w-3 h-3" />
+                            {t.messages.directMessages}
+                          </div>
+                          {directChannels.map(channel => (
+                            <button
+                              key={channel.id}
+                              onClick={() => setActiveConversationId(channel.id)}
+                              className={cn(
+                                "w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors",
+                                activeConversationId === channel.id 
+                                  ? "bg-primary/10 text-primary" 
+                                  : "hover:bg-secondary"
+                              )}
+                            >
+                              <div className="relative">
+                                <Avatar className="h-10 w-10">
+                                  <AvatarImage src={getChannelAvatar(channel) || ''} />
+                                  <AvatarFallback>{getChannelName(channel).charAt(0)}</AvatarFallback>
+                                </Avatar>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between">
+                                  <p className="font-medium text-sm truncate">{getChannelName(channel)}</p>
+                                  {channel.lastMessageTime && (
+                                    <span className="text-xs text-muted-foreground">
+                                      {formatDistanceToNow(channel.lastMessageTime, { addSuffix: false, locale: dateLocale })}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-muted-foreground truncate">
+                                  {channel.lastMessage || t.messages.noMessages}
+                                </p>
+                              </div>
+                              {channel.unreadCount > 0 && (
+                                <Badge variant="default" className="h-5 min-w-[20px] px-1.5 text-xs">
+                                  {channel.unreadCount}
+                                </Badge>
+                              )}
+                            </button>
+                          ))}
                         </div>
-                        {directChannels.map(channel => (
+                      )}
+
+                      {/* Groups */}
+                      {groupChannels.length > 0 && (
+                        <div className="p-2">
+                          <div className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-muted-foreground uppercase">
+                            <Users className="w-3 h-3" />
+                            {t.messages.groups}
+                          </div>
+                          {groupChannels.map(channel => (
+                            <button
+                              key={channel.id}
+                              onClick={() => setActiveConversationId(channel.id)}
+                              className={cn(
+                                "w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors",
+                                activeConversationId === channel.id 
+                                  ? "bg-primary/10 text-primary" 
+                                  : "hover:bg-secondary"
+                              )}
+                            >
+                              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+                                <Hash className="w-5 h-5 text-primary" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between">
+                                  <p className="font-medium text-sm truncate">{channel.name}</p>
+                                  {channel.lastMessageTime && (
+                                    <span className="text-xs text-muted-foreground">
+                                      {formatDistanceToNow(channel.lastMessageTime, { addSuffix: false, locale: dateLocale })}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-muted-foreground truncate">
+                                  {channel.members?.length || 0} {t.messages.members} • {channel.lastMessage || t.messages.noMessages}
+                                </p>
+                              </div>
+                              {channel.unreadCount > 0 && (
+                                <Badge variant="default" className="h-5 min-w-[20px] px-1.5 text-xs">
+                                  {channel.unreadCount}
+                                </Badge>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* Show only direct messages */}
+                  {conversationTab === 'direct' && (
+                    <div className="p-2">
+                      {directChannels.length === 0 ? (
+                        <div className="text-center py-8 px-4 text-muted-foreground">
+                          <p className="text-sm">{language === 'fr' ? 'Aucun message direct' : 'No direct messages'}</p>
+                        </div>
+                      ) : (
+                        directChannels.map(channel => (
                           <button
                             key={channel.id}
                             onClick={() => setActiveConversationId(channel.id)}
@@ -316,18 +400,20 @@ const Messages = () => {
                               </Badge>
                             )}
                           </button>
-                        ))}
-                      </div>
-                    )}
+                        ))
+                      )}
+                    </div>
+                  )}
 
-                    {/* Groups */}
-                    {groupChannels.length > 0 && (
-                      <div className="p-2">
-                        <div className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-muted-foreground uppercase">
-                          <Users className="w-3 h-3" />
-                          {t.messages.groups}
+                  {/* Show only groups */}
+                  {conversationTab === 'group' && (
+                    <div className="p-2">
+                      {groupChannels.length === 0 ? (
+                        <div className="text-center py-8 px-4 text-muted-foreground">
+                          <p className="text-sm">{language === 'fr' ? 'Aucun groupe' : 'No groups'}</p>
                         </div>
-                        {groupChannels.map(channel => (
+                      ) : (
+                        groupChannels.map(channel => (
                           <button
                             key={channel.id}
                             onClick={() => setActiveConversationId(channel.id)}
@@ -360,203 +446,15 @@ const Messages = () => {
                               </Badge>
                             )}
                           </button>
-                        ))}
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {/* Show only direct messages */}
-                {conversationTab === 'direct' && (
-                  <div className="p-2">
-                    {directChannels.length === 0 ? (
-                      <div className="text-center py-8 px-4 text-muted-foreground">
-                        <p className="text-sm">{language === 'fr' ? 'Aucun message direct' : 'No direct messages'}</p>
-                      </div>
-                    ) : (
-                      directChannels.map(channel => (
-                        <button
-                          key={channel.id}
-                          onClick={() => setActiveConversationId(channel.id)}
-                          className={cn(
-                            "w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors",
-                            activeConversationId === channel.id 
-                              ? "bg-primary/10 text-primary" 
-                              : "hover:bg-secondary"
-                          )}
-                        >
-                          <div className="relative">
-                            <Avatar className="h-10 w-10">
-                              <AvatarImage src={getChannelAvatar(channel) || ''} />
-                              <AvatarFallback>{getChannelName(channel).charAt(0)}</AvatarFallback>
-                            </Avatar>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between">
-                              <p className="font-medium text-sm truncate">{getChannelName(channel)}</p>
-                              {channel.lastMessageTime && (
-                                <span className="text-xs text-muted-foreground">
-                                  {formatDistanceToNow(channel.lastMessageTime, { addSuffix: false, locale: dateLocale })}
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-xs text-muted-foreground truncate">
-                              {channel.lastMessage || t.messages.noMessages}
-                            </p>
-                          </div>
-                          {channel.unreadCount > 0 && (
-                            <Badge variant="default" className="h-5 min-w-[20px] px-1.5 text-xs">
-                              {channel.unreadCount}
-                            </Badge>
-                          )}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                )}
-
-                {/* Show only groups */}
-                {conversationTab === 'group' && (
-                  <div className="p-2">
-                    {groupChannels.length === 0 ? (
-                      <div className="text-center py-8 px-4 text-muted-foreground">
-                        <p className="text-sm">{language === 'fr' ? 'Aucun groupe' : 'No groups'}</p>
-                      </div>
-                    ) : (
-                      groupChannels.map(channel => (
-                        <button
-                          key={channel.id}
-                          onClick={() => setActiveConversationId(channel.id)}
-                          className={cn(
-                            "w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors",
-                            activeConversationId === channel.id 
-                              ? "bg-primary/10 text-primary" 
-                              : "hover:bg-secondary"
-                          )}
-                        >
-                          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
-                            <Hash className="w-5 h-5 text-primary" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between">
-                              <p className="font-medium text-sm truncate">{channel.name}</p>
-                              {channel.lastMessageTime && (
-                                <span className="text-xs text-muted-foreground">
-                                  {formatDistanceToNow(channel.lastMessageTime, { addSuffix: false, locale: dateLocale })}
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-xs text-muted-foreground truncate">
-                              {channel.members?.length || 0} {t.messages.members} • {channel.lastMessage || t.messages.noMessages}
-                            </p>
-                          </div>
-                          {channel.unreadCount > 0 && (
-                            <Badge variant="default" className="h-5 min-w-[20px] px-1.5 text-xs">
-                              {channel.unreadCount}
-                            </Badge>
-                          )}
-                        </button>
-                      ))
-                    )}
-=======
-                {/* Direct Messages */}
-                {directChannels.length > 0 && (
-                  <div className="p-2">
-                    <div className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-muted-foreground uppercase">
-                      <MessageSquare className="w-3 h-3" />
-                      {t.messages.directMessages}
+                        ))
+                      )}
                     </div>
-                    {directChannels.map(channel => (
-                      <button
-                        key={channel.id}
-                        onClick={() => setActiveConversationId(channel.id)}
-                        className={cn(
-                          "w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors",
-                          activeConversationId === channel.id 
-                            ? "bg-primary/10 text-primary" 
-                            : "hover:bg-secondary"
-                        )}
-                      >
-                        <div className="relative">
-                          <Avatar className="h-10 w-10">
-                            <AvatarImage src={getChannelAvatar(channel) || ''} />
-                            <AvatarFallback>{getChannelName(channel).charAt(0)}</AvatarFallback>
-                          </Avatar>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between">
-                            <p className="font-medium text-sm truncate">{getChannelName(channel)}</p>
-                            {channel.lastMessageTime && (
-                              <span className="text-xs text-muted-foreground">
-                                {formatDistanceToNow(channel.lastMessageTime, { addSuffix: false, locale: dateLocale })}
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {channel.lastMessage || t.messages.noMessages}
-                          </p>
-                        </div>
-                        {channel.unreadCount > 0 && (
-                          <Badge variant="default" className="h-5 min-w-[20px] px-1.5 text-xs">
-                            {channel.unreadCount}
-                          </Badge>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {/* Groups */}
-                {groupChannels.length > 0 && (
-                  <div className="p-2">
-                    <div className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-muted-foreground uppercase">
-                      <Users className="w-3 h-3" />
-                      {t.messages.groups}
-                    </div>
-                    {groupChannels.map(channel => (
-                      <button
-                        key={channel.id}
-                        onClick={() => setActiveConversationId(channel.id)}
-                        className={cn(
-                          "w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors",
-                          activeConversationId === channel.id 
-                            ? "bg-primary/10 text-primary" 
-                            : "hover:bg-secondary"
-                        )}
-                      >
-                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
-                          <Hash className="w-5 h-5 text-primary" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between">
-                            <p className="font-medium text-sm truncate">{channel.name}</p>
-                            {channel.lastMessageTime && (
-                              <span className="text-xs text-muted-foreground">
-                                {formatDistanceToNow(channel.lastMessageTime, { addSuffix: false, locale: dateLocale })}
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {channel.members?.length || 0} {t.messages.members} • {channel.lastMessage || t.messages.noMessages}
-                          </p>
-                        </div>
-                        {channel.unreadCount > 0 && (
-                          <Badge variant="default" className="h-5 min-w-[20px] px-1.5 text-xs">
-                            {channel.unreadCount}
-                          </Badge>
-                        )}
-                      </button>
-                    ))}
->>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
-                  </div>
-                )}
-              </>
-            )}
-          </ScrollArea>
-<<<<<<< HEAD
+                  )}
+                </>
+              )}
+            </ScrollArea>
           </Tabs>
-=======
->>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
+
         </div>
 
         {/* Chat Area */}
