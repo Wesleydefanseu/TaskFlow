@@ -8,7 +8,7 @@ import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { useNotifications } from '@/contexts/NotificationsContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { inviteTeamMember, updateTeamMemberRole } from '@/lib/api';
+import { inviteTeamMember, updateTeamMemberRole, createMessageGroup, addMemberToGroup } from '@/lib/api';
 import { 
   Plus, 
   Mail, 
@@ -287,11 +287,26 @@ const Team = () => {
         }
 
         // Invite the member
-        await inviteTeamMember(
+        const invitedUser = await inviteTeamMember(
           currentWorkspace.id,
           data.email,
           roleMap[data.role] as 'owner' | 'admin' | 'manager' | 'member' | 'viewer'
         );
+
+        // Create a messaging group for the new member if they're not a viewer
+        if (data.role !== 'observateur') {
+          try {
+            await createMessageGroup(
+              currentWorkspace.id,
+              `${data.name} - Direct Messages`,
+              `Discussion directe avec ${data.name}`,
+              [invitedUser.id]
+            );
+          } catch (groupError) {
+            console.warn('Error creating message group:', groupError);
+            // Don't fail the invitation if group creation fails
+          }
+        }
 
         // Create local TeamMember object for UI update
         const newMember: TeamMember = {
