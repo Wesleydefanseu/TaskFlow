@@ -15,7 +15,10 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { usePermissions } from '@/contexts/UserContext';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
+<<<<<<< HEAD
 import { useNotifications } from '@/contexts/NotificationsContext';
+=======
+>>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { 
@@ -41,7 +44,10 @@ const columns = [
 const Projects = () => {
   const permissions = usePermissions();
   const { boards, projects } = useWorkspace();
+<<<<<<< HEAD
   const { addNotification } = useNotifications();
+=======
+>>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
@@ -221,11 +227,14 @@ const Projects = () => {
           t.id === editingTask.id ? { ...t, ...taskData } : t
         ));
         toast.success('Tâche mise à jour');
+<<<<<<< HEAD
         await addNotification({
           type: 'task',
           title: 'Tâche mise à jour',
           message: `La tâche "${taskData.title}" a été mise à jour`,
         });
+=======
+>>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
       } else {
         const status = taskData.columnId.replace('-', '_') as 'todo' | 'in_progress' | 'review' | 'done';
         const { data, error } = await supabase
@@ -243,6 +252,7 @@ const Projects = () => {
 
         if (error) throw error;
 
+<<<<<<< HEAD
         // Assign task to selected users
         if (taskData.assignees && taskData.assignees.length > 0) {
           const memberIds = taskData.assignees
@@ -265,17 +275,22 @@ const Projects = () => {
           }
         }
 
+=======
+>>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
         const newTask: Task = {
           ...taskData,
           id: data.id,
         };
         setTasks([...tasks, newTask]);
         toast.success('Tâche créée');
+<<<<<<< HEAD
         await addNotification({
           type: 'task',
           title: 'Nouvelle tâche créée',
           message: `La tâche "${taskData.title}" a été créée avec succès`,
         });
+=======
+>>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
       }
     } catch (error) {
       console.error('Error saving task:', error);

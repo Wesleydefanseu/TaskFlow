@@ -534,6 +534,7 @@ export async function markAllNotificationsRead() {
 
   if (error) throw error;
 }
+<<<<<<< HEAD
 
 // =====================================================
 // EVENTS API
@@ -723,3 +724,5 @@ export async function updateTeamMemberRole(
 
   if (error) throw error;
 }
+=======
+>>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3

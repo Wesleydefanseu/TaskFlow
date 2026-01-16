@@ -12,6 +12,10 @@ import { ChatProvider } from "@/contexts/ChatContext";
 import { RealtimeProvider } from "@/contexts/RealtimeContext";
 import { AutomationProvider } from "@/contexts/AutomationContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
+<<<<<<< HEAD
+=======
+import { ChatWindow } from "@/components/chat/ChatWindow";
+>>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import WorkspaceSelect from "./pages/WorkspaceSelect";
@@ -74,6 +78,10 @@ const App = () => (
                             <Route path="/billing" element={<Billing />} />
                             <Route path="*" element={<NotFound />} />
                           </Routes>
+<<<<<<< HEAD
+=======
+                          <ChatWindow />
+>>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
                         </BrowserRouter>
                       </TooltipProvider>
                     </ChatProvider>

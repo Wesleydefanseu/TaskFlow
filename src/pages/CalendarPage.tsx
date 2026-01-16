@@ -15,7 +15,10 @@ import { EventForm, CalendarEvent } from '@/components/forms/EventForm';
 import { supabase } from '@/integrations/supabase/client';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { toast } from 'sonner';
+<<<<<<< HEAD
 import { createEvent, updateEvent, deleteEvent } from '@/lib/api';
+=======
+>>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -145,7 +148,17 @@ const CalendarPage = () => {
   const confirmDelete = async () => {
     if (eventToDelete) {
       try {
+<<<<<<< HEAD
         await deleteEvent(eventToDelete);
+=======
+        const { error } = await supabase
+          .from('events')
+          .delete()
+          .eq('id', eventToDelete);
+
+        if (error) throw error;
+
+>>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
         setEvents(events.filter(e => e.id !== eventToDelete));
         toast.success('Événement supprimé');
       } catch (error) {
@@ -162,6 +175,7 @@ const CalendarPage = () => {
 
     try {
       if (editingEvent) {
+<<<<<<< HEAD
         await updateEvent(editingEvent.id, {
           title: eventData.title,
           date: eventData.date,
@@ -170,12 +184,28 @@ const CalendarPage = () => {
           color: eventData.color,
           description: eventData.description,
         });
+=======
+        const { error } = await supabase
+          .from('events')
+          .update({
+            title: eventData.title,
+            date: eventData.date,
+            time: eventData.time,
+            duration: eventData.duration,
+            color: eventData.color,
+            description: eventData.description,
+          })
+          .eq('id', editingEvent.id);
+
+        if (error) throw error;
+>>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
 
         setEvents(events.map(e => 
           e.id === editingEvent.id ? { ...e, ...eventData } : e
         ));
         toast.success('Événement mis à jour');
       } else {
+<<<<<<< HEAD
         const newEventData = await createEvent(
           currentWorkspace.id,
           eventData.title,
@@ -196,6 +226,32 @@ const CalendarPage = () => {
           duration: Number(newEventData.duration) || 1,
           color: newEventData.color || 'bg-primary',
           description: newEventData.description || undefined,
+=======
+        const { data, error } = await supabase
+          .from('events')
+          .insert({
+            workspace_id: currentWorkspace.id,
+            title: eventData.title,
+            date: eventData.date,
+            time: eventData.time,
+            duration: eventData.duration,
+            color: eventData.color,
+            description: eventData.description,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        const newEvent: CalendarEvent = {
+          id: data.id,
+          title: data.title,
+          date: data.date,
+          time: data.time?.substring(0, 5) || '09:00',
+          duration: Number(data.duration) || 1,
+          color: data.color || 'bg-primary',
+          description: data.description || undefined,
+>>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
         };
         setEvents([...events, newEvent]);
         toast.success('Événement créé');

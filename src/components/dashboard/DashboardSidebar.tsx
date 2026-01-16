@@ -14,18 +14,27 @@ import {
   Search,
   LogOut,
   Zap,
+<<<<<<< HEAD
   TrendingUp,
   Loader2,
   MessageSquare
+=======
+  TrendingUp
+>>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useNotifications } from '@/contexts/NotificationsContext';
 import { useUser, usePermissions, roleLabels } from '@/contexts/UserContext';
+<<<<<<< HEAD
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { ProjectForm } from '@/components/forms/ProjectForm';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from 'sonner';
+=======
+import { ProjectForm } from '@/components/forms/ProjectForm';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+>>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
 
 const mainNav = [
   { icon: Home, label: 'Accueil', path: '/dashboard' },
@@ -33,7 +42,10 @@ const mainNav = [
   { icon: LayoutGrid, label: 'Tableaux', path: '/boards' },
   { icon: BarChart3, label: 'Planification', path: '/planning' },
   { icon: Calendar, label: 'Calendrier', path: '/calendar' },
+<<<<<<< HEAD
   { icon: MessageSquare, label: 'Messages', path: '/messages' },
+=======
+>>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
   { icon: Users, label: 'Équipe', path: '/team' },
   { icon: TrendingUp, label: 'Analytiques', path: '/analytics' },
   { icon: Zap, label: 'Automatisation', path: '/automation' },
@@ -52,6 +64,7 @@ export function DashboardSidebar() {
   const { unreadCount } = useNotifications();
   const { user, logout } = useUser();
   const permissions = usePermissions();
+<<<<<<< HEAD
   const { currentWorkspace, projects: workspaceProjects, addProject } = useWorkspace();
   const [projectFormOpen, setProjectFormOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -77,6 +90,19 @@ export function DashboardSidebar() {
     } finally {
       setIsSubmitting(false);
     }
+=======
+  const [projects, setProjects] = useState(initialProjects);
+  const [projectFormOpen, setProjectFormOpen] = useState(false);
+
+  const handleProjectSubmit = (data: { name: string; description: string; status: string; startDate: string; endDate: string }) => {
+    const colors = ['bg-primary', 'bg-accent', 'bg-status-progress', 'bg-status-review', 'bg-status-done'];
+    const newProject = {
+      id: Date.now().toString(),
+      name: data.name,
+      color: colors[projects.length % colors.length],
+    };
+    setProjects([...projects, newProject]);
+>>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
   };
 
   const handleLogout = () => {
@@ -156,20 +182,33 @@ export function DashboardSidebar() {
                   size="icon" 
                   className="h-6 w-6"
                   onClick={() => setProjectFormOpen(true)}
+<<<<<<< HEAD
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+=======
+                >
+                  <Plus className="w-4 h-4" />
+>>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
                 </Button>
               )}
             </div>
             <div className="space-y-1">
+<<<<<<< HEAD
               {workspaceProjects.map((project) => (
+=======
+              {projects.map((project) => (
+>>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
                 <Link
                   key={project.id}
                   to={`/projects/${project.id}`}
                   className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
                 >
+<<<<<<< HEAD
                   <div className={cn("w-2 h-2 rounded-full", project.color || 'bg-primary')} />
+=======
+                  <div className={cn("w-2 h-2 rounded-full", project.color)} />
+>>>>>>> 7c5b40d96b3de0e8733d266ffcec6d7c72edffa3
                   <span className="text-sm truncate">{project.name}</span>
                 </Link>
               ))}
